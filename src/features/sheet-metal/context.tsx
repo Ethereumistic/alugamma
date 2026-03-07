@@ -50,7 +50,7 @@ export function useSheetMetal() {
 
 export function SheetMetalProvider({ children }: { children: ReactNode }) {
   const [model, setModel] = useState<SheetMetalModel>(() => structuredClone(presetLibrary[1].model));
-  const [exportName, setExportName] = useState("alugamma-sheet-metal");
+  const [exportName, setExportName] = useState("alugamma");
   const geometry = computeSheetMetalGeometry(model);
 
   function setBaseValue(key: "baseWidth" | "baseHeight", value: number) {
@@ -118,9 +118,9 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     const blob = new Blob([contents], { type: "application/dxf" });
     const link = document.createElement("a");
 
-    const safeName = exportName.trim() || "alugamma-sheet-metal";
+    const safeName = exportName.trim() || "alugamma";
     link.href = URL.createObjectURL(blob);
-    link.download = `${safeName}-${geometry.totalWidth}x${geometry.totalHeight}.dxf`;
+    link.download = `${safeName}-${model.baseWidth}x${model.baseHeight}.dxf`;
     link.click();
     URL.revokeObjectURL(link.href);
   }

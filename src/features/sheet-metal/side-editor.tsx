@@ -54,11 +54,14 @@ function MeasurementRow({
         <div className="text-[11px] text-muted-foreground">Step {index + 1}</div>
       </div>
       <Input
-        type="number"
-        min={1}
-        step={1}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value) || 0)}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={value === 0 ? "" : value.toString()}
+        onChange={(event) => {
+          const raw = event.target.value.replace(/[^0-9]/g, "");
+          onChange(raw === "" ? 0 : Number(raw));
+        }}
         className="h-9 font-mono transition-colors focus-visible:ring-1 focus-visible:ring-emerald-500"
       />
       <div className="text-right text-xs text-muted-foreground">

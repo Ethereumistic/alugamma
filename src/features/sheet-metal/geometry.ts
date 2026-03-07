@@ -172,38 +172,22 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
   const outerRight = model.baseWidth + flangeDepths.left + flangeDepths.right;
   const outerTop = model.baseHeight + flangeDepths.bottom + flangeDepths.top;
 
-  const f_top_1 = model.sides.top.flanges[0]?.amount || 0;
-  const f_bot_1 = model.sides.bottom.flanges[0]?.amount || 0;
-  const f_left_1 = model.sides.left.flanges[0]?.amount || 0;
-  const f_right_1 = model.sides.right.flanges[0]?.amount || 0;
-
-  // We only shift the horizontal/vertical boundary if there is exactly 1 flange
-  // If there are multiple flanges, the outer cut edge connects back to x0/y0 perfectly.
-  const topStartX = x0 + (model.sides.top.mitreStart && outerTop === y1 + f_top_1 ? f_top_1 : 0);
-  const topEndX   = x1 - (model.sides.top.mitreEnd && outerTop === y1 + f_top_1 ? f_top_1 : 0);
-  
-  const botStartX = x0 + (model.sides.bottom.mitreStart && outerBottom === y0 - f_bot_1 ? f_bot_1 : 0);
-  const botEndX   = x1 - (model.sides.bottom.mitreEnd && outerBottom === y0 - f_bot_1 ? f_bot_1 : 0);
-  
-  const leftStartY = y1 - (model.sides.left.mitreStart && outerLeft === x0 - f_left_1 ? f_left_1 : 0);
-  const leftEndY   = y0 + (model.sides.left.mitreEnd && outerLeft === x0 - f_left_1 ? f_left_1 : 0);
-  
-  const rightStartY = y1 - (model.sides.right.mitreStart && outerRight === x1 + f_right_1 ? f_right_1 : 0);
-  const rightEndY   = y0 + (model.sides.right.mitreEnd && outerRight === x1 + f_right_1 ? f_right_1 : 0);
-
   const frezOffsets = {
-    top:  getCumulativeOffsets(model.sides.top.frezLines),
+    top: getCumulativeOffsets(model.sides.top.frezLines),
     right: getCumulativeOffsets(model.sides.right.frezLines),
     bottom: getCumulativeOffsets(model.sides.bottom.frezLines),
-    left:  getCumulativeOffsets(model.sides.left.frezLines),
+    left: getCumulativeOffsets(model.sides.left.frezLines),
   };
 
   // 1. FREZ Lines for FLANGES
+  // - Base fold is only drawn if flanges exist
+  // - Intermediate folds are drawn from offsets EXCEPT the last one (which is the CUT edge)
+  // - All these folds span ONLY the base width/height to avoid extending into corner cutouts
   if (model.sides.top.flanges.length > 0) {
     addLine(shapes, "FREZ", x0, y1, x1, y1);
     const offsets = getCumulativeOffsets(model.sides.top.flanges);
     for (let i = 0; i < offsets.length - 1; i++) {
-      addLine(shapes, "FREZ", topStartX, y1 + offsets[i], topEndX, y1 + offsets[i]);
+      addLine(shapes, "FREZ", x0, y1 + offsets[i], x1, y1 + offsets[i]);
     }
   }
 
@@ -211,7 +195,7 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
     addLine(shapes, "FREZ", x0, y0, x1, y0);
     const offsets = getCumulativeOffsets(model.sides.bottom.flanges);
     for (let i = 0; i < offsets.length - 1; i++) {
-      addLine(shapes, "FREZ", botStartX, y0 - offsets[i], botEndX, y0 - offsets[i]);
+      addLine(shapes, "FREZ", x0, y0 - offsets[i], x1, y0 - offsets[i]);
     }
   }
 
@@ -219,7 +203,7 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
     addLine(shapes, "FREZ", x0, y0, x0, y1);
     const offsets = getCumulativeOffsets(model.sides.left.flanges);
     for (let i = 0; i < offsets.length - 1; i++) {
-      addLine(shapes, "FREZ", x0 - offsets[i], leftStartY, x0 - offsets[i], leftEndY);
+      addLine(shapes, "FREZ", x0 - offsets[i], y0, x0 - offsets[i], y1);
     }
   }
 
@@ -227,7 +211,7 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
     addLine(shapes, "FREZ", x1, y0, x1, y1);
     const offsets = getCumulativeOffsets(model.sides.right.flanges);
     for (let i = 0; i < offsets.length - 1; i++) {
-      addLine(shapes, "FREZ", x1 + offsets[i], rightStartY, x1 + offsets[i], rightEndY);
+      addLine(shapes, "FREZ", x1 + offsets[i], y0, x1 + offsets[i], y1);
     }
   }
 
@@ -258,111 +242,27 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
   ];
 
   // 3. OUTER CUT LINES (Edges up to the base corners)
-  addHorizontalCutEdge(shapes, outerTop, y1, topStartX, topEndX, verticalReliefs);
-  addHorizontalCutEdge(shapes, outerBottom, y0, botStartX, botEndX, verticalReliefs);
-  addVerticalCutEdge(shapes, outerRight, x1, rightStartY, rightEndY, horizontalReliefs);
-  addVerticalCutEdge(shapes, outerLeft, x0, leftStartY, leftEndY, horizontalReliefs);
+  addHorizontalCutEdge(shapes, outerTop, y1, x0, x1, verticalReliefs);
+  addHorizontalCutEdge(shapes, outerBottom, y0, x0, x1, verticalReliefs);
+  addVerticalCutEdge(shapes, outerRight, x1, y1, y0, horizontalReliefs);
+  addVerticalCutEdge(shapes, outerLeft, x0, y1, y0, horizontalReliefs);
 
-  // 4. L-SHAPED AND MITRE CORNER CUTS 
+  // 4. L-SHAPED CORNER CUTS (Inward toward base rectangle)
   // Top-Right
-  if (outerTop > y1) {
-    if (model.sides.top.mitreEnd) {
-      addLine(shapes, "CUT", x1, y1, x1 - f_top_1, y1 + f_top_1);
-      if (outerTop > y1 + f_top_1) {
-        addLine(shapes, "CUT", x1 - f_top_1, y1 + f_top_1, x1, y1 + f_top_1);
-        addLine(shapes, "CUT", x1, y1 + f_top_1, x1, outerTop);
-      }
-    } else {
-      addLine(shapes, "CUT", x1, y1, x1, outerTop);
-    }
-  }
-
-  if (outerRight > x1) {
-    if (model.sides.right.mitreStart) {
-      addLine(shapes, "CUT", x1, y1, x1 + f_right_1, y1 - f_right_1);
-      if (outerRight > x1 + f_right_1) {
-        addLine(shapes, "CUT", x1 + f_right_1, y1 - f_right_1, x1 + f_right_1, y1);
-        addLine(shapes, "CUT", x1 + f_right_1, y1, outerRight, y1);
-      }
-    } else {
-      addLine(shapes, "CUT", x1, y1, outerRight, y1);
-    }
-  }
+  if (outerTop > y1) addLine(shapes, "CUT", x1, outerTop, x1, y1);
+  if (outerRight > x1) addLine(shapes, "CUT", x1, y1, outerRight, y1);
 
   // Bottom-Right
-  if (outerRight > x1) {
-    if (model.sides.right.mitreEnd) {
-      addLine(shapes, "CUT", x1, y0, x1 + f_right_1, y0 + f_right_1);
-      if (outerRight > x1 + f_right_1) {
-        addLine(shapes, "CUT", x1 + f_right_1, y0 + f_right_1, x1 + f_right_1, y0);
-        addLine(shapes, "CUT", x1 + f_right_1, y0, outerRight, y0);
-      }
-    } else {
-      addLine(shapes, "CUT", x1, y0, outerRight, y0);
-    }
-  }
-
-  if (outerBottom < y0) {
-    if (model.sides.bottom.mitreEnd) {
-      addLine(shapes, "CUT", x1, y0, x1 - f_bot_1, y0 - f_bot_1);
-      if (outerBottom < y0 - f_bot_1) {
-        addLine(shapes, "CUT", x1 - f_bot_1, y0 - f_bot_1, x1, y0 - f_bot_1);
-        addLine(shapes, "CUT", x1, y0 - f_bot_1, x1, outerBottom);
-      }
-    } else {
-      addLine(shapes, "CUT", x1, y0, x1, outerBottom);
-    }
-  }
+  if (outerRight > x1) addLine(shapes, "CUT", outerRight, y0, x1, y0);
+  if (outerBottom < y0) addLine(shapes, "CUT", x1, y0, x1, outerBottom);
 
   // Bottom-Left
-  if (outerBottom < y0) {
-    if (model.sides.bottom.mitreStart) {
-      addLine(shapes, "CUT", x0, y0, x0 + f_bot_1, y0 - f_bot_1);
-      if (outerBottom < y0 - f_bot_1) {
-        addLine(shapes, "CUT", x0 + f_bot_1, y0 - f_bot_1, x0, y0 - f_bot_1);
-        addLine(shapes, "CUT", x0, y0 - f_bot_1, x0, outerBottom);
-      }
-    } else {
-      addLine(shapes, "CUT", x0, y0, x0, outerBottom);
-    }
-  }
-
-  if (outerLeft < x0) {
-    if (model.sides.left.mitreEnd) {
-      addLine(shapes, "CUT", x0, y0, x0 - f_left_1, y0 + f_left_1);
-      if (outerLeft < x0 - f_left_1) {
-        addLine(shapes, "CUT", x0 - f_left_1, y0 + f_left_1, x0 - f_left_1, y0);
-        addLine(shapes, "CUT", x0 - f_left_1, y0, outerLeft, y0);
-      }
-    } else {
-      addLine(shapes, "CUT", x0, y0, outerLeft, y0);
-    }
-  }
+  if (outerBottom < y0) addLine(shapes, "CUT", x0, outerBottom, x0, y0);
+  if (outerLeft < x0) addLine(shapes, "CUT", x0, y0, outerLeft, y0);
 
   // Top-Left
-  if (outerLeft < x0) {
-    if (model.sides.left.mitreStart) {
-      addLine(shapes, "CUT", x0, y1, x0 - f_left_1, y1 - f_left_1);
-      if (outerLeft < x0 - f_left_1) {
-        addLine(shapes, "CUT", x0 - f_left_1, y1 - f_left_1, x0 - f_left_1, y1);
-        addLine(shapes, "CUT", x0 - f_left_1, y1, outerLeft, y1);
-      }
-    } else {
-      addLine(shapes, "CUT", x0, y1, outerLeft, y1);
-    }
-  }
-
-  if (outerTop > y1) {
-    if (model.sides.top.mitreStart) {
-      addLine(shapes, "CUT", x0, y1, x0 + f_top_1, y1 + f_top_1);
-      if (outerTop > y1 + f_top_1) {
-        addLine(shapes, "CUT", x0 + f_top_1, y1 + f_top_1, x0, y1 + f_top_1);
-        addLine(shapes, "CUT", x0, y1 + f_top_1, x0, outerTop);
-      }
-    } else {
-      addLine(shapes, "CUT", x0, y1, x0, outerTop);
-    }
-  }
+  if (outerLeft < x0) addLine(shapes, "CUT", outerLeft, y1, x0, y1);
+  if (outerTop > y1) addLine(shapes, "CUT", x0, y1, x0, outerTop);
 
   // Handle Model Inversion
   if (model.invertX) {

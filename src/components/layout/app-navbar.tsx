@@ -29,12 +29,12 @@ function NavNumberField({
       <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">{label}</label>
       <div className="relative">
         <Input
-          type="number"
-          min={1}
-          step={1}
-          value={value === 0 ? "" : value}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={value === 0 ? "" : value.toString()}
           onChange={(event) => {
-            const raw = event.target.value;
+            const raw = event.target.value.replace(/[^0-9]/g, "");
             onChange(raw === "" ? 0 : Number(raw));
           }}
           className="h-8 w-[80px] font-mono bg-black/20 text-xs px-2 pr-6 transition-colors focus-visible:ring-1 focus-visible:ring-emerald-500"
