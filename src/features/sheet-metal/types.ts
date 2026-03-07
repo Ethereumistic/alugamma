@@ -5,16 +5,32 @@ export type SideKey = (typeof sideKeys)[number];
 export type CornerKey = (typeof cornerKeys)[number];
 export type Layer = "CUT" | "FREZ";
 export type FrezMode = "inner" | "outer";
+export type CornerReliefAxis = "horizontal" | "vertical";
+export type FrezNotchPosition = "start" | "end";
 
 export type Measurement = {
   id: string;
   amount: number;
 };
 
+export type FrezLineNotches = {
+  start: boolean;
+  end: boolean;
+};
+
+export type FrezMeasurement = Measurement & {
+  notches: FrezLineNotches;
+};
+
 export type SideConfig = {
   flanges: Measurement[];
-  frezLines: Measurement[];
+  frezLines: FrezMeasurement[];
   frezMode: FrezMode;
+};
+
+export type CornerReliefAxes = {
+  horizontal: boolean;
+  vertical: boolean;
 };
 
 export type SheetMetalModel = {
@@ -23,7 +39,7 @@ export type SheetMetalModel = {
   invertX: boolean;
   invertY: boolean;
   sides: Record<SideKey, SideConfig>;
-  cornerReliefs: Record<CornerKey, boolean>;
+  cornerReliefs: Record<CornerKey, CornerReliefAxes>;
 };
 
 export type Rect = {
@@ -61,12 +77,26 @@ export type Preset = {
 
 let measurementCounter = 0;
 
-export function createMeasurement(amount = 20): Measurement {
+function nextMeasurementId() {
   measurementCounter += 1;
+  return `m-${measurementCounter}`;
+}
 
+export function createMeasurement(amount = 20): Measurement {
   return {
-    id: `m-${measurementCounter}`,
+    id: nextMeasurementId(),
     amount,
+  };
+}
+
+export function createFrezMeasurement(amount = 24, notches?: Partial<FrezLineNotches>): FrezMeasurement {
+  return {
+    id: nextMeasurementId(),
+    amount,
+    notches: {
+      start: notches?.start ?? false,
+      end: notches?.end ?? false,
+    },
   };
 }
 
@@ -75,6 +105,13 @@ export function createEmptySide(): SideConfig {
     flanges: [],
     frezLines: [],
     frezMode: "inner",
+  };
+}
+
+export function createEmptyCornerRelief(): CornerReliefAxes {
+  return {
+    horizontal: false,
+    vertical: false,
   };
 }
 
@@ -91,10 +128,117 @@ export function createEmptyModel(): SheetMetalModel {
       left: createEmptySide(),
     },
     cornerReliefs: {
-      topLeft: false,
-      topRight: false,
-      bottomRight: false,
-      bottomLeft: false,
+      topLeft: createEmptyCornerRelief(),
+      topRight: createEmptyCornerRelief(),
+      bottomRight: createEmptyCornerRelief(),
+      bottomLeft: createEmptyCornerRelief(),
+    },
+  };
+}
+
+function normalizeMeasurement(value: unknown, fallbackAmount = 0): Measurement {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    return {
+      id: typeof record.id === "string" ? record.id : nextMeasurementId(),
+      amount: typeof record.amount === "number" ? record.amount : fallbackAmount,
+    };
+  }
+
+  return {
+    id: nextMeasurementId(),
+    amount: fallbackAmount,
+  };
+}
+
+export function normalizeFrezLineNotches(value: unknown, fallbackEnabled = true): FrezLineNotches {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    if ("start" in record || "end" in record) {
+      return {
+        start: record.start === true,
+        end: record.end === true,
+      };
+    }
+  }
+
+  return {
+    start: fallbackEnabled,
+    end: fallbackEnabled,
+  };
+}
+
+export function normalizeFrezMeasurement(value: unknown): FrezMeasurement {
+  const measurement = normalizeMeasurement(value, 24);
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    return {
+      ...measurement,
+      notches: normalizeFrezLineNotches(record.notches, true),
+    };
+  }
+
+  return {
+    ...measurement,
+    notches: normalizeFrezLineNotches(undefined, true),
+  };
+}
+
+export function normalizeCornerReliefAxes(value: unknown): CornerReliefAxes {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    if ("horizontal" in record || "vertical" in record) {
+      return {
+        horizontal: record.horizontal === true,
+        vertical: record.vertical === true,
+      };
+    }
+  }
+
+  if (value === "horizontal" || value === true) {
+    return { horizontal: true, vertical: false };
+  }
+
+  if (value === "vertical") {
+    return { horizontal: false, vertical: true };
+  }
+
+  return createEmptyCornerRelief();
+}
+
+function normalizeSideConfig(value: unknown): SideConfig {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    const flanges = Array.isArray(record.flanges) ? record.flanges.map((item) => normalizeMeasurement(item, 20)) : [];
+    const frezLines = Array.isArray(record.frezLines)
+      ? record.frezLines.map((item) => normalizeFrezMeasurement(item))
+      : [];
+
+    return {
+      flanges,
+      frezLines,
+      frezMode: record.frezMode === "outer" ? "outer" : "inner",
+    };
+  }
+
+  return createEmptySide();
+}
+
+export function normalizeSheetMetalModel(model: SheetMetalModel): SheetMetalModel {
+  return {
+    ...model,
+    sides: {
+      top: normalizeSideConfig(model.sides.top),
+      right: normalizeSideConfig(model.sides.right),
+      bottom: normalizeSideConfig(model.sides.bottom),
+      left: normalizeSideConfig(model.sides.left),
+    },
+    cornerReliefs: {
+      topLeft: normalizeCornerReliefAxes(model.cornerReliefs.topLeft),
+      topRight: normalizeCornerReliefAxes(model.cornerReliefs.topRight),
+      bottomRight: normalizeCornerReliefAxes(model.cornerReliefs.bottomRight),
+      bottomLeft: normalizeCornerReliefAxes(model.cornerReliefs.bottomLeft),
     },
   };
 }

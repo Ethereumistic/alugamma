@@ -1,5 +1,6 @@
 import {
   sideKeys,
+  type FrezMeasurement,
   type GeometryResult,
   type LineShape,
   type Measurement,
@@ -11,6 +12,16 @@ type HorizontalNotch = {
   apexX: number;
   apexY: number;
   shoulderY: number;
+};
+
+type VerticalNotch = {
+  apexX: number;
+  apexY: number;
+  shoulderX: number;
+};
+
+type AmountItem = {
+  amount: number;
 };
 
 function addLine(
@@ -28,11 +39,11 @@ function addLine(
   shapes.push({ type: "line", layer, x1, y1, x2, y2 });
 }
 
-export function sumMeasurements(items: Measurement[]) {
+export function sumMeasurements<T extends AmountItem>(items: T[]) {
   return items.reduce((total, item) => total + item.amount, 0);
 }
 
-export function getCumulativeOffsets(items: Measurement[]) {
+export function getCumulativeOffsets<T extends AmountItem>(items: T[]) {
   const offsets: number[] = [];
   let total = 0;
 
@@ -161,33 +172,45 @@ function addHorizontalCutEdge(
 function addVerticalCutEdge(
   shapes: LineShape[],
   xEdge: number,
-  innerX: number,
   startY: number,
   endY: number,
-  notchYs: number[],
+  notches: VerticalNotch[],
 ) {
-  const depth = Math.abs(xEdge - innerX);
-  const sorted = [...notchYs]
-    .filter((y) => y < startY && y > endY)
-    .sort((top, bottom) => bottom - top);
+  const sorted = [...notches]
+    .filter((notch) => notch.apexY < startY && notch.apexY > endY)
+    .sort((top, bottom) => bottom.apexY - top.apexY);
 
-  if (depth <= 0 || sorted.length === 0) {
+  if (sorted.length === 0) {
     addLine(shapes, "CUT", xEdge, startY, xEdge, endY);
     return;
   }
 
   let cursor = startY;
 
-  for (const y of sorted) {
-    const upperShoulder = Math.min(startY, y + depth);
-    const lowerShoulder = Math.max(endY, y - depth);
+  for (const notch of sorted) {
+    const halfHeight = Math.abs(notch.shoulderX - notch.apexX);
+    const upperShoulder = Math.min(startY, notch.apexY + halfHeight);
+    const lowerShoulder = Math.max(endY, notch.apexY - halfHeight);
+
+    if (lowerShoulder >= cursor) {
+      continue;
+    }
 
     if (cursor > upperShoulder) {
       addLine(shapes, "CUT", xEdge, cursor, xEdge, upperShoulder);
     }
 
-    addLine(shapes, "CUT", xEdge, upperShoulder, innerX, y);
-    addLine(shapes, "CUT", innerX, y, xEdge, lowerShoulder);
+    if (notch.shoulderX !== xEdge) {
+      addLine(shapes, "CUT", xEdge, upperShoulder, notch.shoulderX, upperShoulder);
+    }
+
+    addLine(shapes, "CUT", notch.shoulderX, upperShoulder, notch.apexX, notch.apexY);
+    addLine(shapes, "CUT", notch.apexX, notch.apexY, notch.shoulderX, lowerShoulder);
+
+    if (notch.shoulderX !== xEdge) {
+      addLine(shapes, "CUT", notch.shoulderX, lowerShoulder, xEdge, lowerShoulder);
+    }
+
     cursor = lowerShoulder;
   }
 
@@ -202,6 +225,59 @@ function getCornerShoulderOffset(items: Measurement[]) {
   }
 
   return items.length > 1 ? items[0].amount : sumMeasurements(items);
+}
+
+function hasCornerRelief(model: SheetMetalModel, corner: keyof SheetMetalModel["cornerReliefs"]) {
+  const relief = model.cornerReliefs[corner];
+  return relief.horizontal || relief.vertical;
+}
+
+function addFrezDrivenHorizontalNotches(
+  startEdgeNotches: HorizontalNotch[],
+  endEdgeNotches: HorizontalNotch[],
+  frezLines: FrezMeasurement[],
+  positions: number[],
+  startTarget: { apexY: number; shoulderY: number },
+  endTarget: { apexY: number; shoulderY: number },
+) {
+  frezLines.forEach((line, index) => {
+    const apexX = positions[index];
+    if (apexX === undefined) {
+      return;
+    }
+
+    if (line.notches.start) {
+      startEdgeNotches.push({ apexX, apexY: startTarget.apexY, shoulderY: startTarget.shoulderY });
+    }
+
+    if (line.notches.end) {
+      endEdgeNotches.push({ apexX, apexY: endTarget.apexY, shoulderY: endTarget.shoulderY });
+    }
+  });
+}
+
+function addFrezDrivenVerticalNotches(
+  startEdgeNotches: VerticalNotch[],
+  endEdgeNotches: VerticalNotch[],
+  frezLines: FrezMeasurement[],
+  positions: number[],
+  startTarget: { apexX: number; shoulderX: number },
+  endTarget: { apexX: number; shoulderX: number },
+) {
+  frezLines.forEach((line, index) => {
+    const apexY = positions[index];
+    if (apexY === undefined) {
+      return;
+    }
+
+    if (line.notches.start) {
+      startEdgeNotches.push({ apexX: startTarget.apexX, apexY, shoulderX: startTarget.shoulderX });
+    }
+
+    if (line.notches.end) {
+      endEdgeNotches.push({ apexX: endTarget.apexX, apexY, shoulderX: endTarget.shoulderX });
+    }
+  });
 }
 
 export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
@@ -221,14 +297,19 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
   const frezOffsets = getFrezOffsets(model);
   const frezPositions = getResolvedFrezPositions(model, x0, y0, x1, y1, frezOffsets);
 
-  const topSpanStart = model.cornerReliefs.topLeft ? outerLeft : x0;
-  const topSpanEnd = model.cornerReliefs.topRight ? outerRight : x1;
-  const bottomSpanStart = model.cornerReliefs.bottomLeft ? outerLeft : x0;
-  const bottomSpanEnd = model.cornerReliefs.bottomRight ? outerRight : x1;
-  const leftSpanTop = model.cornerReliefs.topLeft ? outerTop : y1;
-  const leftSpanBottom = model.cornerReliefs.bottomLeft ? outerBottom : y0;
-  const rightSpanTop = model.cornerReliefs.topRight ? outerTop : y1;
-  const rightSpanBottom = model.cornerReliefs.bottomRight ? outerBottom : y0;
+  const hasTopLeftRelief = hasCornerRelief(model, "topLeft");
+  const hasTopRightRelief = hasCornerRelief(model, "topRight");
+  const hasBottomRightRelief = hasCornerRelief(model, "bottomRight");
+  const hasBottomLeftRelief = hasCornerRelief(model, "bottomLeft");
+
+  const topSpanStart = hasTopLeftRelief ? outerLeft : x0;
+  const topSpanEnd = hasTopRightRelief ? outerRight : x1;
+  const bottomSpanStart = hasBottomLeftRelief ? outerLeft : x0;
+  const bottomSpanEnd = hasBottomRightRelief ? outerRight : x1;
+  const leftSpanTop = hasTopLeftRelief ? outerTop : y1;
+  const leftSpanBottom = hasBottomLeftRelief ? outerBottom : y0;
+  const rightSpanTop = hasTopRightRelief ? outerTop : y1;
+  const rightSpanBottom = hasBottomRightRelief ? outerBottom : y0;
 
   if (model.sides.top.flanges.length > 0) {
     addLine(shapes, "FREZ", topSpanStart, y1, topSpanEnd, y1);
@@ -286,69 +367,134 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
     addLine(shapes, "FREZ", x, startY, x, endY);
   }
 
-  const topNotches: HorizontalNotch[] = [
-    ...frezPositions.left.map((apexX) => ({ apexX, apexY: y1, shoulderY: outerTop })),
-    ...frezPositions.right.map((apexX) => ({ apexX, apexY: y1, shoulderY: outerTop })),
-  ];
+  const topShoulderY = y1 + getCornerShoulderOffset(model.sides.top.flanges);
+  const bottomShoulderY = y0 - getCornerShoulderOffset(model.sides.bottom.flanges);
+  const leftShoulderX = x0 - getCornerShoulderOffset(model.sides.left.flanges);
+  const rightShoulderX = x1 + getCornerShoulderOffset(model.sides.right.flanges);
 
-  const bottomNotches: HorizontalNotch[] = [
-    ...frezPositions.left.map((apexX) => ({ apexX, apexY: y0, shoulderY: outerBottom })),
-    ...frezPositions.right.map((apexX) => ({ apexX, apexY: y0, shoulderY: outerBottom })),
-  ];
+  const topNotches: HorizontalNotch[] = [];
+  const bottomNotches: HorizontalNotch[] = [];
+  const leftNotches: VerticalNotch[] = [];
+  const rightNotches: VerticalNotch[] = [];
 
-  if (model.cornerReliefs.topLeft && outerTop > y1) {
+  addFrezDrivenHorizontalNotches(
+    topNotches,
+    bottomNotches,
+    model.sides.left.frezLines,
+    frezPositions.left,
+    { apexY: y1, shoulderY: topShoulderY },
+    { apexY: y0, shoulderY: bottomShoulderY },
+  );
+  addFrezDrivenHorizontalNotches(
+    topNotches,
+    bottomNotches,
+    model.sides.right.frezLines,
+    frezPositions.right,
+    { apexY: y1, shoulderY: topShoulderY },
+    { apexY: y0, shoulderY: bottomShoulderY },
+  );
+  addFrezDrivenVerticalNotches(
+    leftNotches,
+    rightNotches,
+    model.sides.top.frezLines,
+    frezPositions.top,
+    { apexX: x0, shoulderX: leftShoulderX },
+    { apexX: x1, shoulderX: rightShoulderX },
+  );
+  addFrezDrivenVerticalNotches(
+    leftNotches,
+    rightNotches,
+    model.sides.bottom.frezLines,
+    frezPositions.bottom,
+    { apexX: x0, shoulderX: leftShoulderX },
+    { apexX: x1, shoulderX: rightShoulderX },
+  );
+
+  if (model.cornerReliefs.topLeft.horizontal && outerTop > y1) {
     topNotches.push({
       apexX: x0,
       apexY: y1,
-      shoulderY: y1 + getCornerShoulderOffset(model.sides.top.flanges),
+      shoulderY: topShoulderY,
     });
   }
 
-  if (model.cornerReliefs.topRight && outerTop > y1) {
+  if (model.cornerReliefs.topRight.horizontal && outerTop > y1) {
     topNotches.push({
       apexX: x1,
       apexY: y1,
-      shoulderY: y1 + getCornerShoulderOffset(model.sides.top.flanges),
+      shoulderY: topShoulderY,
     });
   }
 
-  if (model.cornerReliefs.bottomLeft && outerBottom < y0) {
+  if (model.cornerReliefs.bottomLeft.horizontal && outerBottom < y0) {
     bottomNotches.push({
       apexX: x0,
       apexY: y0,
-      shoulderY: y0 - getCornerShoulderOffset(model.sides.bottom.flanges),
+      shoulderY: bottomShoulderY,
     });
   }
 
-  if (model.cornerReliefs.bottomRight && outerBottom < y0) {
+  if (model.cornerReliefs.bottomRight.horizontal && outerBottom < y0) {
     bottomNotches.push({
       apexX: x1,
       apexY: y0,
-      shoulderY: y0 - getCornerShoulderOffset(model.sides.bottom.flanges),
+      shoulderY: bottomShoulderY,
+    });
+  }
+
+  if (model.cornerReliefs.topLeft.vertical && outerLeft < x0) {
+    leftNotches.push({
+      apexX: x0,
+      apexY: y1,
+      shoulderX: leftShoulderX,
+    });
+  }
+
+  if (model.cornerReliefs.bottomLeft.vertical && outerLeft < x0) {
+    leftNotches.push({
+      apexX: x0,
+      apexY: y0,
+      shoulderX: leftShoulderX,
+    });
+  }
+
+  if (model.cornerReliefs.topRight.vertical && outerRight > x1) {
+    rightNotches.push({
+      apexX: x1,
+      apexY: y1,
+      shoulderX: rightShoulderX,
+    });
+  }
+
+  if (model.cornerReliefs.bottomRight.vertical && outerRight > x1) {
+    rightNotches.push({
+      apexX: x1,
+      apexY: y0,
+      shoulderX: rightShoulderX,
     });
   }
 
   addHorizontalCutEdge(shapes, outerTop, topSpanStart, topSpanEnd, topNotches);
   addHorizontalCutEdge(shapes, outerBottom, bottomSpanStart, bottomSpanEnd, bottomNotches);
-  addVerticalCutEdge(shapes, outerRight, x1, rightSpanTop, rightSpanBottom, [...frezPositions.top, ...frezPositions.bottom]);
-  addVerticalCutEdge(shapes, outerLeft, x0, leftSpanTop, leftSpanBottom, [...frezPositions.top, ...frezPositions.bottom]);
+  addVerticalCutEdge(shapes, outerRight, rightSpanTop, rightSpanBottom, rightNotches);
+  addVerticalCutEdge(shapes, outerLeft, leftSpanTop, leftSpanBottom, leftNotches);
 
-  if (!model.cornerReliefs.topRight) {
+  if (!hasTopRightRelief) {
     if (outerTop > y1) addLine(shapes, "CUT", x1, outerTop, x1, y1);
     if (outerRight > x1) addLine(shapes, "CUT", x1, y1, outerRight, y1);
   }
 
-  if (!model.cornerReliefs.bottomRight) {
+  if (!hasBottomRightRelief) {
     if (outerRight > x1) addLine(shapes, "CUT", outerRight, y0, x1, y0);
     if (outerBottom < y0) addLine(shapes, "CUT", x1, y0, x1, outerBottom);
   }
 
-  if (!model.cornerReliefs.bottomLeft) {
+  if (!hasBottomLeftRelief) {
     if (outerBottom < y0) addLine(shapes, "CUT", x0, outerBottom, x0, y0);
     if (outerLeft < x0) addLine(shapes, "CUT", x0, y0, outerLeft, y0);
   }
 
-  if (!model.cornerReliefs.topLeft) {
+  if (!hasTopLeftRelief) {
     if (outerLeft < x0) addLine(shapes, "CUT", outerLeft, y1, x0, y1);
     if (outerTop > y1) addLine(shapes, "CUT", x0, y1, x0, outerTop);
   }

@@ -1,20 +1,15 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useSheetMetal } from "@/features/sheet-metal/context";
 import { presetLibrary } from "@/features/sheet-metal/presets";
+import { useWorkspace } from "@/features/workspace/context";
+import type { Id } from "../../../convex/_generated/dataModel";
 
-// Using the same NumberField implementation but stylized for nav height
 function NavNumberField({
   label,
   value,
@@ -26,7 +21,7 @@ function NavNumberField({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap">{label}</label>
+      <label className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</label>
       <div className="relative">
         <Input
           type="text"
@@ -37,7 +32,7 @@ function NavNumberField({
             const raw = event.target.value.replace(/[^0-9]/g, "");
             onChange(raw === "" ? 0 : Number(raw));
           }}
-          className="h-8 w-[80px] font-mono bg-black/20 text-xs px-2 pr-6 transition-colors focus-visible:ring-1 focus-visible:ring-emerald-500"
+          className="h-8 w-[80px] bg-black/20 px-2 pr-6 font-mono text-xs transition-colors focus-visible:ring-1 focus-visible:ring-emerald-500"
         />
         <span className="absolute right-2 top-1.5 text-[10px] font-medium text-muted-foreground">mm</span>
       </div>
@@ -47,23 +42,88 @@ function NavNumberField({
 
 export function AppNavbar() {
   const location = useLocation();
-  const isSheetMetal = location.pathname === "/sheet-metal";
-  
-  const { model, setBaseValue, setInvert, exportName, setExportName, loadPreset, exportDxf } = isSheetMetal 
-    ? useSheetMetal() 
-    : { model: null, setBaseValue: null, setInvert: null, exportName: "", setExportName: null, loadPreset: null, exportDxf: null };
+  const navigate = useNavigate();
+  const isSheetMetal = location.pathname.startsWith("/sheet-metal");
+  const {
+    model,
+    designName,
+    setDesignName,
+    setBaseValue,
+    setInvert,
+    loadPreset,
+    exportDxf,
+    saveDesign,
+    isSaving,
+  } = useSheetMetal();
+  const { projects, selectedProject, selectedProjectId, setSelectedOrganizationId, setSelectedProjectId } = useWorkspace();
+
+  async function handleSave() {
+    const designId = await saveDesign();
+    if (designId) {
+      navigate(`/sheet-metal/${designId}`, { replace: true });
+    }
+  }
+
+  async function handleExport() {
+    const designId = await exportDxf();
+    if (designId) {
+      navigate(`/sheet-metal/${designId}`, { replace: true });
+    }
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center gap-4 border-b border-white/5 bg-card/60 px-6 backdrop-blur">
       <SidebarTrigger className="text-muted-foreground hover:text-white" />
-      
-      {isSheetMetal && model && setBaseValue && setInvert && setExportName && loadPreset && exportDxf && (
-        <div className="ml-auto flex flex-1 items-center justify-end gap-6 overflow-x-auto">
-          {/* Presets */}
+
+      {isSheetMetal && (
+        <div className="flex flex-1 items-center gap-4 overflow-x-auto">
+          <div className="hidden min-w-[220px] items-center gap-2 xl:flex">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Project</span>
+            <Select
+              value={selectedProjectId ?? undefined}
+              onValueChange={(value) => {
+                const nextProject = projects.find((project) => project.id === value);
+                if (!nextProject) {
+                  return;
+                }
+                setSelectedOrganizationId(nextProject.organizationId);
+                setSelectedProjectId(nextProject.id as Id<"projects">);
+                navigate("/sheet-metal");
+              }}
+              disabled={projects.length === 0}
+            >
+              <SelectTrigger className="h-8 w-[220px] border-white/10 bg-black/20 text-xs hover:bg-white/5 focus:ring-1 focus:ring-emerald-500">
+                <SelectValue placeholder="Select project..." />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[240px] max-w-[340px] flex-1 items-center gap-2 md:flex">
+            <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground md:block">Design</span>
+            <Input
+              value={designName}
+              onChange={(event) => setDesignName(event.target.value)}
+              placeholder="e.g. facade-panel-01"
+              className="h-8 border-white/10 bg-black/20 text-xs"
+            />
+          </div>
+
           <div className="hidden items-center gap-2 lg:flex">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Preset</span>
-            <Select onValueChange={(val) => loadPreset(Number(val))}>
-              <SelectTrigger className="h-8 w-[180px] text-xs bg-black/20 border-white/10 hover:bg-white/5 focus:ring-1 focus:ring-emerald-500">
+            <Select
+              onValueChange={(value) => {
+                loadPreset(Number(value));
+                navigate("/sheet-metal");
+              }}
+            >
+              <SelectTrigger className="h-8 w-[170px] border-white/10 bg-black/20 text-xs hover:bg-white/5 focus:ring-1 focus:ring-emerald-500">
                 <SelectValue placeholder="Select preset..." />
               </SelectTrigger>
               <SelectContent>
@@ -76,40 +136,30 @@ export function AppNavbar() {
             </Select>
           </div>
 
-          <div className="h-4 w-px bg-white/10 hidden lg:block" />
+          <div className="hidden h-4 w-px bg-white/10 lg:block" />
 
-          {/* Model Dimensions */}
-          <div className="flex items-center gap-4">
-            <NavNumberField
-              label="W"
-              value={model.baseWidth}
-              onChange={(val) => setBaseValue("baseWidth", val)}
-            />
-            <span className="text-muted-foreground/30 font-bold mb-0.5">×</span>
-            <NavNumberField
-              label="H"
-              value={model.baseHeight}
-              onChange={(val) => setBaseValue("baseHeight", val)}
-            />
+          <div className="hidden items-center gap-4 xl:flex">
+            <NavNumberField label="W" value={model.baseWidth} onChange={(value) => setBaseValue("baseWidth", value)} />
+            <span className="mb-0.5 font-bold text-muted-foreground/30">×</span>
+            <NavNumberField label="H" value={model.baseHeight} onChange={(value) => setBaseValue("baseHeight", value)} />
           </div>
 
-          <div className="h-4 w-px bg-white/10" />
+          <div className="hidden h-4 w-px bg-white/10 xl:block" />
 
-          {/* Invert Controls */}
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-white cursor-pointer transition-colors whitespace-nowrap">
-              <Checkbox 
-                checked={model.invertX} 
-                onCheckedChange={(c) => setInvert("invertX", !!c)} 
-                className="h-3.5 w-3.5 border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+          <div className="hidden items-center gap-4 2xl:flex">
+            <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-white">
+              <Checkbox
+                checked={model.invertX}
+                onCheckedChange={(checked) => setInvert("invertX", !!checked)}
+                className="h-3.5 w-3.5 border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
               />
               Invert X
             </label>
-            <label className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-white cursor-pointer transition-colors whitespace-nowrap">
-              <Checkbox 
-                checked={model.invertY} 
-                onCheckedChange={(c) => setInvert("invertY", !!c)} 
-                className="h-3.5 w-3.5 border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+            <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-white">
+              <Checkbox
+                checked={model.invertY}
+                onCheckedChange={(checked) => setInvert("invertY", !!checked)}
+                className="h-3.5 w-3.5 border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
               />
               Invert Y
             </label>
@@ -117,17 +167,18 @@ export function AppNavbar() {
 
           <div className="h-4 w-px bg-white/10" />
 
-          {/* Export Controls */}
           <div className="flex items-center gap-3">
-             <Input 
-                value={exportName}
-                onChange={(e) => setExportName(e.target.value)}
-                placeholder="e.g. front-panel-01"
-                className="h-8 w-[180px] text-xs bg-black/20"
-              />
-              <Button size="sm" className="h-8 text-xs px-4 shadow-[0_0_15px_rgba(20,180,100,0.15)]" onClick={exportDxf}>
-                Export DXF
-              </Button>
+            <Button size="sm" variant="outline" className="h-8 px-4 text-xs" onClick={() => void handleSave()} disabled={!selectedProject || isSaving}>
+              Save
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 px-4 text-xs shadow-[0_0_15px_rgba(20,180,100,0.15)]"
+              onClick={() => void handleExport()}
+              disabled={!selectedProject || isSaving}
+            >
+              {isSaving ? "Saving..." : "Save + Export DXF"}
+            </Button>
           </div>
         </div>
       )}

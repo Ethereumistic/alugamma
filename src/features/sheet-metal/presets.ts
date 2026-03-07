@@ -1,5 +1,6 @@
 import {
   createEmptyModel,
+  createFrezMeasurement,
   createMeasurement,
   type Preset,
   type SheetMetalModel,
@@ -37,20 +38,20 @@ export const presetLibrary: Preset[] = [
         },
         bottom: {
           flanges: [createMeasurement(142)],
-          frezLines: [createMeasurement(116)],
+          frezLines: [createFrezMeasurement(116, { start: true, end: true })],
           frezMode: "inner",
         },
         left: {
           flanges: [createMeasurement(30)],
-          frezLines: [createMeasurement(220)],
+          frezLines: [createFrezMeasurement(220, { start: true, end: true })],
           frezMode: "inner",
         },
       },
       cornerReliefs: {
-        topLeft: false,
-        topRight: false,
-        bottomRight: false,
-        bottomLeft: false,
+        topLeft: { horizontal: false, vertical: false },
+        topRight: { horizontal: false, vertical: false },
+        bottomRight: { horizontal: false, vertical: false },
+        bottomLeft: { horizontal: false, vertical: false },
       },
     })),
   },
