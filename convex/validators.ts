@@ -23,6 +23,18 @@ export const measurementValidator = v.object({
   id: v.string(),
   amount: v.number(),
 });
+export const flangeReliefsValidator = v.object({
+  start: v.boolean(),
+  end: v.boolean(),
+});
+export const flangeMeasurementValidator = v.union(
+  measurementValidator,
+  v.object({
+    id: v.string(),
+    amount: v.number(),
+    reliefs: flangeReliefsValidator,
+  }),
+);
 export const frezMeasurementValidator = v.union(
   measurementValidator,
   v.object({
@@ -33,7 +45,7 @@ export const frezMeasurementValidator = v.union(
 );
 
 export const sideConfigValidator = v.object({
-  flanges: v.array(measurementValidator),
+  flanges: v.array(flangeMeasurementValidator),
   frezLines: v.array(frezMeasurementValidator),
   frezMode: frezModeValidator,
 });
@@ -43,6 +55,7 @@ export const sheetModelValidator = v.object({
   baseHeight: v.number(),
   invertX: v.boolean(),
   invertY: v.boolean(),
+  offsetCut: v.optional(v.number()),
   sides: v.object({
     top: sideConfigValidator,
     right: sideConfigValidator,

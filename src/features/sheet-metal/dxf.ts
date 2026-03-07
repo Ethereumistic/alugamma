@@ -16,6 +16,7 @@ export function buildDxf(shapes: LineShape[]) {
   const dxfString = makerjs.exporter.toDXF(model, {
     units: makerjs.unitType.Millimeter,
     layerOptions: {
+      "0": { color: 7 }, // white / black
       CUT: { color: 3 }, // green
       FREZ: { color: 6 }, // magenta
     },

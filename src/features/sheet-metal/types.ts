@@ -3,7 +3,7 @@ export const cornerKeys = ["topLeft", "topRight", "bottomRight", "bottomLeft"] a
 
 export type SideKey = (typeof sideKeys)[number];
 export type CornerKey = (typeof cornerKeys)[number];
-export type Layer = "CUT" | "FREZ";
+export type Layer = "CUT" | "FREZ" | "0";
 export type FrezMode = "inner" | "outer";
 export type CornerReliefAxis = "horizontal" | "vertical";
 export type FrezNotchPosition = "start" | "end";
@@ -47,6 +47,7 @@ export type SheetMetalModel = {
   baseHeight: number;
   invertX: boolean;
   invertY: boolean;
+  offsetCut: number;
   sides: Record<SideKey, SideConfig>;
   cornerReliefs: Record<CornerKey, CornerReliefAxes>;
 };
@@ -134,6 +135,7 @@ export function createEmptyModel(): SheetMetalModel {
     baseHeight: 520,
     invertX: false,
     invertY: false,
+    offsetCut: 3,
     sides: {
       top: createEmptySide(),
       right: createEmptySide(),
@@ -275,6 +277,7 @@ function normalizeSideConfig(value: unknown): SideConfig {
 export function normalizeSheetMetalModel(model: SheetMetalModel): SheetMetalModel {
   return {
     ...model,
+    offsetCut: typeof model.offsetCut === "number" ? model.offsetCut : 3,
     sides: {
       top: normalizeSideConfig(model.sides.top),
       right: normalizeSideConfig(model.sides.right),

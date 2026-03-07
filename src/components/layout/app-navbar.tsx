@@ -8,7 +8,6 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useSheetMetal } from "@/features/sheet-metal/context";
 import { presetLibrary } from "@/features/sheet-metal/presets";
 import { useWorkspace } from "@/features/workspace/context";
-import type { Id } from "../../../convex/_generated/dataModel";
 
 function NavNumberField({
   label,
@@ -49,13 +48,14 @@ export function AppNavbar() {
     designName,
     setDesignName,
     setBaseValue,
+    setOffsetCut,
     setInvert,
     loadPreset,
     exportDxf,
     saveDesign,
     isSaving,
   } = useSheetMetal();
-  const { projects, selectedProject, selectedProjectId, setSelectedOrganizationId, setSelectedProjectId } = useWorkspace();
+  const { selectedProject } = useWorkspace();
 
   async function handleSave() {
     const designId = await saveDesign();
@@ -77,33 +77,7 @@ export function AppNavbar() {
 
       {isSheetMetal && (
         <div className="flex flex-1 items-center gap-4 overflow-x-auto">
-          <div className="hidden min-w-[220px] items-center gap-2 xl:flex">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Project</span>
-            <Select
-              value={selectedProjectId ?? undefined}
-              onValueChange={(value) => {
-                const nextProject = projects.find((project) => project.id === value);
-                if (!nextProject) {
-                  return;
-                }
-                setSelectedOrganizationId(nextProject.organizationId);
-                setSelectedProjectId(nextProject.id as Id<"projects">);
-                navigate("/sheet-metal");
-              }}
-              disabled={projects.length === 0}
-            >
-              <SelectTrigger className="h-8 w-[220px] border-white/10 bg-black/20 text-xs hover:bg-white/5 focus:ring-1 focus:ring-emerald-500">
-                <SelectValue placeholder="Select project..." />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
 
           <div className="min-w-[240px] max-w-[340px] flex-1 items-center gap-2 md:flex">
             <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-muted-foreground md:block">Design</span>
@@ -163,6 +137,8 @@ export function AppNavbar() {
               />
               Invert Y
             </label>
+            <div className="mx-2 h-4 w-px bg-white/10" />
+            <NavNumberField label="OFFSET CUT" value={model.offsetCut} onChange={(value) => setOffsetCut(value)} />
           </div>
 
           <div className="h-4 w-px bg-white/10" />

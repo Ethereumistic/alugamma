@@ -286,10 +286,10 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
   const x1 = x0 + model.baseWidth;
   const y1 = y0 + model.baseHeight;
 
-  const outerLeft = 0;
-  const outerBottom = 0;
-  const outerRight = model.baseWidth + flangeDepths.left + flangeDepths.right;
-  const outerTop = model.baseHeight + flangeDepths.bottom + flangeDepths.top;
+  const outerLeft = -model.offsetCut;
+  const outerBottom = -model.offsetCut;
+  const outerRight = model.baseWidth + flangeDepths.left + flangeDepths.right + model.offsetCut;
+  const outerTop = model.baseHeight + flangeDepths.bottom + flangeDepths.top + model.offsetCut;
 
   const frezOffsets = getFrezOffsets(model);
   const frezPositions = getResolvedFrezPositions(model, x0, y0, x1, y1, frezOffsets);

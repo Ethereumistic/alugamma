@@ -55,6 +55,7 @@ type SheetMetalContextType = {
   isSaving: boolean;
   status: SheetMetalStatus | null;
   setBaseValue: (key: "baseWidth" | "baseHeight", value: number) => void;
+  setOffsetCut: (value: number) => void;
   setInvert: (axis: "invertX" | "invertY", value: boolean) => void;
   addFlange: (side: SideKey) => void;
   addFrez: (side: SideKey) => void;
@@ -139,6 +140,13 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     setModel((current) => ({
       ...current,
       [axis]: value,
+    }));
+  }
+
+  function setOffsetCut(value: number) {
+    setModel((current) => ({
+      ...current,
+      offsetCut: value,
     }));
   }
 
@@ -340,6 +348,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
         isSaving,
         status,
         setBaseValue,
+        setOffsetCut,
         setInvert,
         addFlange,
         addFrez,
