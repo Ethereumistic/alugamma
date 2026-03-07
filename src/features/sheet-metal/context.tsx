@@ -5,6 +5,8 @@ import { computeSheetMetalGeometry } from "@/features/sheet-metal/geometry";
 import { presetLibrary } from "@/features/sheet-metal/presets";
 import {
   createMeasurement,
+  type CornerKey,
+  type FrezMode,
   type Measurement,
   type SheetMetalModel,
   type SideKey,
@@ -33,7 +35,8 @@ type SheetMetalContextType = {
   updateFrez: (side: SideKey, index: number, amount: number) => void;
   removeFlange: (side: SideKey, index: number) => void;
   removeFrez: (side: SideKey, index: number) => void;
-  setMitre: (side: SideKey, position: "start" | "end", value: boolean) => void;
+  setFrezMode: (side: SideKey, mode: FrezMode) => void;
+  setCornerRelief: (corner: CornerKey, value: boolean) => void;
   loadPreset: (index: number) => void;
   exportDxf: () => void;
 };
@@ -104,9 +107,15 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     patchSide(side, (draft) => ({ ...draft, frezLines: removeMeasurement(draft.frezLines, index) }));
   }
 
-  function setMitre(side: SideKey, position: "start" | "end", value: boolean) {
-    const key = position === "start" ? "mitreStart" : "mitreEnd";
-    patchSide(side, (draft) => ({ ...draft, [key]: value }));
+  function setFrezMode(side: SideKey, mode: FrezMode) {
+    patchSide(side, (draft) => ({ ...draft, frezMode: mode }));
+  }
+
+  function setCornerRelief(corner: CornerKey, value: boolean) {
+    setModel((current) => ({
+      ...current,
+      cornerReliefs: { ...current.cornerReliefs, [corner]: value },
+    }));
   }
 
   function loadPreset(index: number) {
@@ -140,7 +149,8 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
         updateFrez,
         removeFlange,
         removeFrez,
-        setMitre,
+        setFrezMode,
+        setCornerRelief,
         loadPreset,
         exportDxf,
       }}

@@ -28,27 +28,29 @@ export const presetLibrary: Preset[] = [
         top: {
           flanges: [createMeasurement(26)],
           frezLines: [],
-          mitreStart: false,
-          mitreEnd: false,
+          frezMode: "inner",
         },
         right: {
           flanges: [createMeasurement(28)],
           frezLines: [],
-          mitreStart: false,
-          mitreEnd: false,
+          frezMode: "inner",
         },
         bottom: {
           flanges: [createMeasurement(142)],
           frezLines: [createMeasurement(116)],
-          mitreStart: false, // User mentioned left corner of bottom side
-          mitreEnd: false,
+          frezMode: "inner",
         },
         left: {
           flanges: [createMeasurement(30)],
           frezLines: [createMeasurement(220)],
-          mitreStart: false,
-          mitreEnd: false,
+          frezMode: "inner",
         },
+      },
+      cornerReliefs: {
+        topLeft: false,
+        topRight: false,
+        bottomRight: false,
+        bottomLeft: false,
       },
     })),
   },

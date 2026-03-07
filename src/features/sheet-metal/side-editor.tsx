@@ -4,9 +4,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { getCumulativeOffsets, sumMeasurements } from "@/features/sheet-metal/geometry";
-import type { SideConfig, SideKey } from "@/features/sheet-metal/types";
+import type { FrezMode, SideConfig, SideKey } from "@/features/sheet-metal/types";
 
-const mitreLabels: Record<SideKey, { start: string; end: string }> = {
+const cornerLabels: Record<SideKey, { start: string; end: string }> = {
   top: { start: "Left", end: "Right" },
   bottom: { start: "Left", end: "Right" },
   left: { start: "Top", end: "Bottom" },
@@ -19,13 +19,16 @@ type SideEditorProps = {
   accentClass: string;
   config: SideConfig;
   inwardLimit: number;
+  outwardLimit: number;
+  cornerState: { start: boolean; end: boolean };
   onAddFlange: () => void;
   onAddFrez: () => void;
   onChangeFlange: (index: number, value: number) => void;
   onChangeFrez: (index: number, value: number) => void;
   onRemoveFlange: (index: number) => void;
   onRemoveFrez: (index: number) => void;
-  onSetMitre: (position: "start" | "end", value: boolean) => void;
+  onSetFrezMode: (mode: FrezMode) => void;
+  onSetCornerRelief: (position: "start" | "end", value: boolean) => void;
 };
 
 function MeasurementRow({
@@ -81,16 +84,21 @@ export function SideEditor({
   accentClass,
   config,
   inwardLimit,
+  outwardLimit,
+  cornerState,
   onAddFlange,
   onAddFrez,
   onChangeFlange,
   onChangeFrez,
   onRemoveFlange,
   onRemoveFrez,
-  onSetMitre,
+  onSetFrezMode,
+  onSetCornerRelief,
 }: SideEditorProps) {
   const flangeOffsets = getCumulativeOffsets(config.flanges);
   const frezOffsets = getCumulativeOffsets(config.frezLines);
+  const frezUnitLabel = config.frezMode === "inner" ? "in" : "out";
+  const frezLimit = config.frezMode === "inner" ? inwardLimit : outwardLimit;
 
   return (
     <Card className="overflow-hidden border-white/10 bg-card/80">
@@ -107,22 +115,22 @@ export function SideEditor({
           </div>
         </div>
         {config.flanges.length > 0 && (
-          <div className="flex items-center gap-6 pt-1">
-            <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-white cursor-pointer transition-colors">
-              <Checkbox 
-                checked={config.mitreStart} 
-                onCheckedChange={(c) => onSetMitre("start", !!c)} 
-                className="border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+          <div className="flex flex-wrap items-center gap-6 pt-1">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-white">
+              <Checkbox
+                checked={cornerState.start}
+                onCheckedChange={(checked) => onSetCornerRelief("start", !!checked)}
+                className="border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
               />
-              Mitre {mitreLabels[side].start} Corner
+              V-notch {cornerLabels[side].start} Corner Relief
             </label>
-            <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-white cursor-pointer transition-colors">
-              <Checkbox 
-                checked={config.mitreEnd} 
-                onCheckedChange={(c) => onSetMitre("end", !!c)} 
-                className="border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-white">
+              <Checkbox
+                checked={cornerState.end}
+                onCheckedChange={(checked) => onSetCornerRelief("end", !!checked)}
+                className="border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
               />
-              Mitre {mitreLabels[side].end} Corner
+              V-notch {cornerLabels[side].end} Corner Relief
             </label>
           </div>
         )}
@@ -155,12 +163,32 @@ export function SideEditor({
         </div>
         <Separator />
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Inner FREZ</p>
-              <p className="text-[11px] text-muted-foreground">Max in: {inwardLimit} mm</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">FREZ</p>
+              <p className="text-[11px] text-muted-foreground">Max {frezUnitLabel}: {frezLimit} mm</p>
             </div>
-            <p className="font-mono text-xs text-foreground">{sumMeasurements(config.frezLines)} mm in</p>
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 p-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={config.frezMode === "inner" ? "secondary" : "ghost"}
+                className="h-8 rounded-full px-3"
+                onClick={() => onSetFrezMode("inner")}
+              >
+                Inner
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={config.frezMode === "outer" ? "secondary" : "ghost"}
+                className="h-8 rounded-full px-3"
+                onClick={() => onSetFrezMode("outer")}
+              >
+                Outer
+              </Button>
+            </div>
+            <p className="font-mono text-xs text-foreground">{sumMeasurements(config.frezLines)} mm {frezUnitLabel}</p>
           </div>
           {config.frezLines.length > 0 ? (
             config.frezLines.map((frez, index) => (
@@ -170,7 +198,7 @@ export function SideEditor({
                 index={index}
                 value={frez.amount}
                 cumulative={frezOffsets[index] ?? 0}
-                unitLabel="in"
+                unitLabel={frezUnitLabel}
                 tintClass="text-fuchsia-300"
                 onChange={(value) => onChangeFrez(index, value)}
                 onRemove={() => onRemoveFrez(index)}
@@ -178,7 +206,7 @@ export function SideEditor({
             ))
           ) : (
             <p className="rounded-xl border border-dashed border-white/10 bg-black/10 px-3 py-2 text-sm text-muted-foreground">
-              No inner FREZ steps.
+              No FREZ steps.
             </p>
           )}
         </div>

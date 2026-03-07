@@ -1,7 +1,10 @@
 export const sideKeys = ["top", "right", "bottom", "left"] as const;
+export const cornerKeys = ["topLeft", "topRight", "bottomRight", "bottomLeft"] as const;
 
 export type SideKey = (typeof sideKeys)[number];
+export type CornerKey = (typeof cornerKeys)[number];
 export type Layer = "CUT" | "FREZ";
+export type FrezMode = "inner" | "outer";
 
 export type Measurement = {
   id: string;
@@ -11,8 +14,7 @@ export type Measurement = {
 export type SideConfig = {
   flanges: Measurement[];
   frezLines: Measurement[];
-  mitreStart: boolean;
-  mitreEnd: boolean;
+  frezMode: FrezMode;
 };
 
 export type SheetMetalModel = {
@@ -21,6 +23,7 @@ export type SheetMetalModel = {
   invertX: boolean;
   invertY: boolean;
   sides: Record<SideKey, SideConfig>;
+  cornerReliefs: Record<CornerKey, boolean>;
 };
 
 export type Rect = {
@@ -71,8 +74,7 @@ export function createEmptySide(): SideConfig {
   return {
     flanges: [],
     frezLines: [],
-    mitreStart: false,
-    mitreEnd: false,
+    frezMode: "inner",
   };
 }
 
@@ -87,6 +89,12 @@ export function createEmptyModel(): SheetMetalModel {
       right: createEmptySide(),
       bottom: createEmptySide(),
       left: createEmptySide(),
+    },
+    cornerReliefs: {
+      topLeft: false,
+      topRight: false,
+      bottomRight: false,
+      bottomLeft: false,
     },
   };
 }
