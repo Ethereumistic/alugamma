@@ -22,8 +22,17 @@ export type FrezMeasurement = Measurement & {
   notches: FrezLineNotches;
 };
 
+export type FlangeReliefs = {
+  start: boolean;
+  end: boolean;
+};
+
+export type FlangeMeasurement = Measurement & {
+  reliefs: FlangeReliefs;
+};
+
 export type SideConfig = {
-  flanges: Measurement[];
+  flanges: FlangeMeasurement[];
   frezLines: FrezMeasurement[];
   frezMode: FrezMode;
 };
@@ -82,10 +91,14 @@ function nextMeasurementId() {
   return `m-${measurementCounter}`;
 }
 
-export function createMeasurement(amount = 20): Measurement {
+export function createFlangeMeasurement(amount = 20, reliefs?: Partial<FlangeReliefs>): FlangeMeasurement {
   return {
     id: nextMeasurementId(),
     amount,
+    reliefs: {
+      start: reliefs?.start ?? false,
+      end: reliefs?.end ?? false,
+    },
   };
 }
 
@@ -151,6 +164,40 @@ function normalizeMeasurement(value: unknown, fallbackAmount = 0): Measurement {
   };
 }
 
+export function normalizeFlangeReliefs(value: unknown, fallbackEnabled = false): FlangeReliefs {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    if ("start" in record || "end" in record) {
+      return {
+        start: record.start === true,
+        end: record.end === true,
+      };
+    }
+  }
+
+  return {
+    start: fallbackEnabled,
+    end: fallbackEnabled,
+  };
+}
+
+export function normalizeFlangeMeasurement(value: unknown): FlangeMeasurement {
+  const measurement = normalizeMeasurement(value, 20);
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    return {
+      ...measurement,
+      reliefs: normalizeFlangeReliefs(record.reliefs, false),
+    };
+  }
+
+  return {
+    ...measurement,
+    reliefs: normalizeFlangeReliefs(undefined, false),
+  };
+}
+
 export function normalizeFrezLineNotches(value: unknown, fallbackEnabled = true): FrezLineNotches {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const record = value as Record<string, unknown>;
@@ -210,7 +257,7 @@ export function normalizeCornerReliefAxes(value: unknown): CornerReliefAxes {
 function normalizeSideConfig(value: unknown): SideConfig {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const record = value as Record<string, unknown>;
-    const flanges = Array.isArray(record.flanges) ? record.flanges.map((item) => normalizeMeasurement(item, 20)) : [];
+    const flanges = Array.isArray(record.flanges) ? record.flanges.map((item) => normalizeFlangeMeasurement(item)) : [];
     const frezLines = Array.isArray(record.frezLines)
       ? record.frezLines.map((item) => normalizeFrezMeasurement(item))
       : [];

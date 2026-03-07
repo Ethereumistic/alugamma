@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +30,6 @@ type SideEditorProps = {
   config: SideConfig;
   inwardLimit: number;
   outwardLimit: number;
-  cornerState: { start: boolean; end: boolean };
   onAddFlange: () => void;
   onAddFrez: () => void;
   onChangeFlange: (index: number, value: number) => void;
@@ -38,15 +38,13 @@ type SideEditorProps = {
   onRemoveFrez: (index: number) => void;
   onSetFrezMode: (mode: FrezMode) => void;
   onSetFrezNotch: (index: number, position: FrezNotchPosition, value: boolean) => void;
-  onSetCornerRelief: (position: "start" | "end", value: boolean) => void;
+  onSetFlangeRelief: (index: number, position: "start" | "end", value: boolean) => void;
 };
 
 function MeasurementRow({
   label,
   index,
   value,
-  cumulative,
-  unitLabel,
   tintClass,
   onChange,
   onRemove,
@@ -55,19 +53,17 @@ function MeasurementRow({
   label: string;
   index: number;
   value: number;
-  cumulative: number;
-  unitLabel: string;
   tintClass: string;
   onChange: (value: number) => void;
   onRemove: () => void;
   controls?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-white/6 bg-black/10 px-3 py-3">
-      <div className="grid grid-cols-[auto,108px,1fr,auto] items-center gap-3">
-        <div className="min-w-0">
-          <div className={`text-xs font-semibold uppercase tracking-[0.16em] ${tintClass}`}>{label}</div>
-          <div className="text-[11px] text-muted-foreground">Step {index + 1}</div>
+    <div className="rounded-xl border border-white/6 bg-black/10 px-2.5 py-2.5">
+      <div className="flex items-center gap-2.5">
+        <div className="min-w-[50px]">
+          <div className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${tintClass}`}>{label}</div>
+          <div className="text-[10px] text-muted-foreground">Step {index + 1}</div>
         </div>
         <Input
           type="text"
@@ -78,17 +74,15 @@ function MeasurementRow({
             const raw = event.target.value.replace(/[^0-9]/g, "");
             onChange(raw === "" ? 0 : Number(raw));
           }}
-          className="h-9 font-mono transition-colors focus-visible:ring-1 focus-visible:ring-emerald-500"
+          className="h-8 w-[64px] px-2 text-sm font-mono transition-colors focus-visible:ring-1 focus-visible:ring-emerald-500"
         />
-        <div className="text-right text-xs text-muted-foreground">
-          <div className="font-mono text-sm text-foreground">{cumulative} mm</div>
-          <div>{unitLabel}</div>
+        <div className="flex flex-1 items-center justify-end gap-3 px-1">
+          {controls}
         </div>
-        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={onRemove}>
-          Remove
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={onRemove}>
+          <X className="h-4 w-4" />
         </Button>
       </div>
-      {controls ? <div className="mt-3 border-t border-white/6 pt-3">{controls}</div> : null}
     </div>
   );
 }
@@ -100,7 +94,6 @@ export function SideEditor({
   config,
   inwardLimit,
   outwardLimit,
-  cornerState,
   onAddFlange,
   onAddFrez,
   onChangeFlange,
@@ -109,7 +102,7 @@ export function SideEditor({
   onRemoveFrez,
   onSetFrezMode,
   onSetFrezNotch,
-  onSetCornerRelief,
+  onSetFlangeRelief,
 }: SideEditorProps) {
   const flangeOffsets = getCumulativeOffsets(config.flanges);
   const frezOffsets = getCumulativeOffsets(config.frezLines);
@@ -130,26 +123,6 @@ export function SideEditor({
             </Button>
           </div>
         </div>
-        {config.flanges.length > 0 && (
-          <div className="flex flex-wrap items-center gap-6 pt-1">
-            <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-white">
-              <Checkbox
-                checked={cornerState.start}
-                onCheckedChange={(checked) => onSetCornerRelief("start", !!checked)}
-                className="border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
-              />
-              {cornerLabels[side].start} corner on {cornerAxisLabel[side]} FREZ
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-white">
-              <Checkbox
-                checked={cornerState.end}
-                onCheckedChange={(checked) => onSetCornerRelief("end", !!checked)}
-                className="border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
-              />
-              {cornerLabels[side].end} corner on {cornerAxisLabel[side]} FREZ
-            </label>
-          </div>
-        )}
       </CardHeader>
       <CardContent className="space-y-4 p-4">
         <div className="space-y-3">
@@ -164,11 +137,29 @@ export function SideEditor({
                 label="Flange"
                 index={index}
                 value={flange.amount}
-                cumulative={flangeOffsets[index] ?? 0}
-                unitLabel="out"
                 tintClass="text-emerald-300"
                 onChange={(value) => onChangeFlange(index, value)}
                 onRemove={() => onRemoveFlange(index)}
+                controls={
+                  <div className="flex items-center gap-3">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-white">
+                      <Checkbox
+                        checked={flange.reliefs.start}
+                        onCheckedChange={(checked) => onSetFlangeRelief(index, "start", !!checked)}
+                        className="h-3.5 w-3.5 border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
+                      />
+                      {cornerLabels[side].start} V-notch
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-white">
+                      <Checkbox
+                        checked={flange.reliefs.end}
+                        onCheckedChange={(checked) => onSetFlangeRelief(index, "end", !!checked)}
+                        className="h-3.5 w-3.5 border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
+                      />
+                      {cornerLabels[side].end} V-notch
+                    </label>
+                  </div>
+                }
               />
             ))
           ) : (
@@ -213,26 +204,24 @@ export function SideEditor({
                 label="FREZ"
                 index={index}
                 value={frez.amount}
-                cumulative={frezOffsets[index] ?? 0}
-                unitLabel={frezUnitLabel}
                 tintClass="text-fuchsia-300"
                 onChange={(value) => onChangeFrez(index, value)}
                 onRemove={() => onRemoveFrez(index)}
                 controls={
-                  <div className="flex flex-wrap items-center gap-6">
-                    <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-white">
+                  <div className="flex items-center gap-3">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-white">
                       <Checkbox
                         checked={frez.notches.start}
                         onCheckedChange={(checked) => onSetFrezNotch(index, "start", !!checked)}
-                        className="border-white/20 data-[state=checked]:border-fuchsia-500 data-[state=checked]:bg-fuchsia-500"
+                        className="h-3.5 w-3.5 border-white/20 data-[state=checked]:border-fuchsia-500 data-[state=checked]:bg-fuchsia-500"
                       />
                       {cornerLabels[side].start} V-notch
                     </label>
-                    <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground transition-colors hover:text-white">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-white">
                       <Checkbox
                         checked={frez.notches.end}
                         onCheckedChange={(checked) => onSetFrezNotch(index, "end", !!checked)}
-                        className="border-white/20 data-[state=checked]:border-fuchsia-500 data-[state=checked]:bg-fuchsia-500"
+                        className="h-3.5 w-3.5 border-white/20 data-[state=checked]:border-fuchsia-500 data-[state=checked]:bg-fuchsia-500"
                       />
                       {cornerLabels[side].end} V-notch
                     </label>

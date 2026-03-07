@@ -227,10 +227,7 @@ function getCornerShoulderOffset(items: Measurement[]) {
   return items.length > 1 ? items[0].amount : sumMeasurements(items);
 }
 
-function hasCornerRelief(model: SheetMetalModel, corner: keyof SheetMetalModel["cornerReliefs"]) {
-  const relief = model.cornerReliefs[corner];
-  return relief.horizontal || relief.vertical;
-}
+// Removed legacy hasCornerRelief to compute dynamically
 
 function addFrezDrivenHorizontalNotches(
   startEdgeNotches: HorizontalNotch[],
@@ -297,10 +294,29 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
   const frezOffsets = getFrezOffsets(model);
   const frezPositions = getResolvedFrezPositions(model, x0, y0, x1, y1, frezOffsets);
 
-  const hasTopLeftRelief = hasCornerRelief(model, "topLeft");
-  const hasTopRightRelief = hasCornerRelief(model, "topRight");
-  const hasBottomRightRelief = hasCornerRelief(model, "bottomRight");
-  const hasBottomLeftRelief = hasCornerRelief(model, "bottomLeft");
+  const hasTopLeftRelief =
+    model.sides.top.flanges.some((f) => f.reliefs.start) ||
+    model.sides.left.flanges.some((f) => f.reliefs.start) ||
+    model.sides.top.frezLines.some((f) => f.notches.start) ||
+    model.sides.left.frezLines.some((f) => f.notches.start);
+
+  const hasTopRightRelief =
+    model.sides.top.flanges.some((f) => f.reliefs.end) ||
+    model.sides.right.flanges.some((f) => f.reliefs.start) ||
+    model.sides.top.frezLines.some((f) => f.notches.end) ||
+    model.sides.right.frezLines.some((f) => f.notches.start);
+
+  const hasBottomRightRelief =
+    model.sides.bottom.flanges.some((f) => f.reliefs.end) ||
+    model.sides.right.flanges.some((f) => f.reliefs.end) ||
+    model.sides.bottom.frezLines.some((f) => f.notches.end) ||
+    model.sides.right.frezLines.some((f) => f.notches.end);
+
+  const hasBottomLeftRelief =
+    model.sides.bottom.flanges.some((f) => f.reliefs.start) ||
+    model.sides.left.flanges.some((f) => f.reliefs.end) ||
+    model.sides.bottom.frezLines.some((f) => f.notches.start) ||
+    model.sides.left.frezLines.some((f) => f.notches.end);
 
   const topSpanStart = hasTopLeftRelief ? outerLeft : x0;
   const topSpanEnd = hasTopRightRelief ? outerRight : x1;
@@ -410,69 +426,51 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
     { apexX: x1, shoulderX: rightShoulderX },
   );
 
-  if (model.cornerReliefs.topLeft.horizontal && outerTop > y1) {
-    topNotches.push({
-      apexX: x0,
-      apexY: y1,
-      shoulderY: topShoulderY,
-    });
-  }
+  const topOffsets = getCumulativeOffsets(model.sides.top.flanges);
+  const bottomOffsets = getCumulativeOffsets(model.sides.bottom.flanges);
+  const leftOffsets = getCumulativeOffsets(model.sides.left.flanges);
+  const rightOffsets = getCumulativeOffsets(model.sides.right.flanges);
 
-  if (model.cornerReliefs.topRight.horizontal && outerTop > y1) {
-    topNotches.push({
-      apexX: x1,
-      apexY: y1,
-      shoulderY: topShoulderY,
-    });
-  }
+  const topFolds = [y1, ...topOffsets.slice(0, -1).map((o) => y1 + o)];
+  const bottomFolds = [y0, ...bottomOffsets.slice(0, -1).map((o) => y0 - o)];
+  const leftFolds = [x0, ...leftOffsets.slice(0, -1).map((o) => x0 - o)];
+  const rightFolds = [x1, ...rightOffsets.slice(0, -1).map((o) => x1 + o)];
 
-  if (model.cornerReliefs.bottomLeft.horizontal && outerBottom < y0) {
-    bottomNotches.push({
-      apexX: x0,
-      apexY: y0,
-      shoulderY: bottomShoulderY,
-    });
-  }
+  model.sides.left.flanges.forEach((flange, i) => {
+    if (flange.reliefs.start && outerTop > y1) {
+      topNotches.push({ apexX: leftFolds[i], apexY: y1, shoulderY: topShoulderY });
+    }
+    if (flange.reliefs.end && outerBottom < y0) {
+      bottomNotches.push({ apexX: leftFolds[i], apexY: y0, shoulderY: bottomShoulderY });
+    }
+  });
 
-  if (model.cornerReliefs.bottomRight.horizontal && outerBottom < y0) {
-    bottomNotches.push({
-      apexX: x1,
-      apexY: y0,
-      shoulderY: bottomShoulderY,
-    });
-  }
+  model.sides.right.flanges.forEach((flange, i) => {
+    if (flange.reliefs.start && outerTop > y1) {
+      topNotches.push({ apexX: rightFolds[i], apexY: y1, shoulderY: topShoulderY });
+    }
+    if (flange.reliefs.end && outerBottom < y0) {
+      bottomNotches.push({ apexX: rightFolds[i], apexY: y0, shoulderY: bottomShoulderY });
+    }
+  });
 
-  if (model.cornerReliefs.topLeft.vertical && outerLeft < x0) {
-    leftNotches.push({
-      apexX: x0,
-      apexY: y1,
-      shoulderX: leftShoulderX,
-    });
-  }
+  model.sides.top.flanges.forEach((flange, i) => {
+    if (flange.reliefs.start && outerLeft < x0) {
+      leftNotches.push({ apexX: x0, apexY: topFolds[i], shoulderX: leftShoulderX });
+    }
+    if (flange.reliefs.end && outerRight > x1) {
+      rightNotches.push({ apexX: x1, apexY: topFolds[i], shoulderX: rightShoulderX });
+    }
+  });
 
-  if (model.cornerReliefs.bottomLeft.vertical && outerLeft < x0) {
-    leftNotches.push({
-      apexX: x0,
-      apexY: y0,
-      shoulderX: leftShoulderX,
-    });
-  }
-
-  if (model.cornerReliefs.topRight.vertical && outerRight > x1) {
-    rightNotches.push({
-      apexX: x1,
-      apexY: y1,
-      shoulderX: rightShoulderX,
-    });
-  }
-
-  if (model.cornerReliefs.bottomRight.vertical && outerRight > x1) {
-    rightNotches.push({
-      apexX: x1,
-      apexY: y0,
-      shoulderX: rightShoulderX,
-    });
-  }
+  model.sides.bottom.flanges.forEach((flange, i) => {
+    if (flange.reliefs.start && outerLeft < x0) {
+      leftNotches.push({ apexX: x0, apexY: bottomFolds[i], shoulderX: leftShoulderX });
+    }
+    if (flange.reliefs.end && outerRight > x1) {
+      rightNotches.push({ apexX: x1, apexY: bottomFolds[i], shoulderX: rightShoulderX });
+    }
+  });
 
   addHorizontalCutEdge(shapes, outerTop, topSpanStart, topSpanEnd, topNotches);
   addHorizontalCutEdge(shapes, outerBottom, bottomSpanStart, bottomSpanEnd, bottomNotches);
@@ -526,7 +524,8 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
 }
 
 export function getSideTotal(model: SheetMetalModel, side: SideKey, kind: "flanges" | "frezLines") {
-  return sumMeasurements(model.sides[side][kind]);
+  const items = model.sides[side][kind] as AmountItem[];
+  return sumMeasurements(items);
 }
 
 export function countShapes(shapes: LineShape[], layer: LineShape["layer"]) {

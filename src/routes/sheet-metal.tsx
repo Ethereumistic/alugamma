@@ -53,7 +53,7 @@ export default function SheetMetalApp() {
     removeFrez,
     setFrezMode,
     setFrezNotch,
-    setCornerRelief,
+    setFlangeRelief,
     loadSavedDesign,
   } = useSheetMetal();
   const {
@@ -191,10 +191,6 @@ export default function SheetMetalApp() {
                 config={model.sides[side]}
                 inwardLimit={side === "left" || side === "right" ? model.baseWidth : model.baseHeight}
                 outwardLimit={geometry.flangeDepths[side]}
-                cornerState={{
-                  start: model.cornerReliefs[sideCornerMap[side].start][axis],
-                  end: model.cornerReliefs[sideCornerMap[side].end][axis],
-                }}
                 onAddFlange={() => addFlange(side)}
                 onAddFrez={() => addFrez(side)}
                 onChangeFlange={(index, value) => updateFlange(side, index, value)}
@@ -203,7 +199,7 @@ export default function SheetMetalApp() {
                 onRemoveFrez={(index) => removeFrez(side, index)}
                 onSetFrezMode={(mode) => setFrezMode(side, mode)}
                 onSetFrezNotch={(index, position, value) => setFrezNotch(side, index, position, value)}
-                onSetCornerRelief={(position, value) => setCornerRelief(sideCornerMap[side][position], axis, value)}
+                onSetFlangeRelief={(index, position, value) => setFlangeRelief(side, index, position, value)}
               />
             );
           })}
@@ -272,10 +268,6 @@ export default function SheetMetalApp() {
                   config={model.sides[side]}
                   inwardLimit={side === "left" || side === "right" ? model.baseWidth : model.baseHeight}
                   outwardLimit={geometry.flangeDepths[side]}
-                  cornerState={{
-                    start: model.cornerReliefs[sideCornerMap[side].start][axis],
-                    end: model.cornerReliefs[sideCornerMap[side].end][axis],
-                  }}
                   onAddFlange={() => addFlange(side)}
                   onAddFrez={() => addFrez(side)}
                   onChangeFlange={(index, value) => updateFlange(side, index, value)}
@@ -284,7 +276,7 @@ export default function SheetMetalApp() {
                   onRemoveFrez={(index) => removeFrez(side, index)}
                   onSetFrezMode={(mode) => setFrezMode(side, mode)}
                   onSetFrezNotch={(index, position, value) => setFrezNotch(side, index, position, value)}
-                  onSetCornerRelief={(position, value) => setCornerRelief(sideCornerMap[side][position], axis, value)}
+                  onSetFlangeRelief={(index, position, value) => setFlangeRelief(side, index, position, value)}
                 />
               );
             })}

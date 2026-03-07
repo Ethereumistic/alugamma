@@ -8,7 +8,7 @@ import { computeSheetMetalGeometry } from "@/features/sheet-metal/geometry";
 import { presetLibrary } from "@/features/sheet-metal/presets";
 import {
   createFrezMeasurement,
-  createMeasurement,
+  createFlangeMeasurement,
   normalizeSheetMetalModel,
   type CornerKey,
   type CornerReliefAxis,
@@ -64,6 +64,7 @@ type SheetMetalContextType = {
   removeFrez: (side: SideKey, index: number) => void;
   setFrezMode: (side: SideKey, mode: FrezMode) => void;
   setFrezNotch: (side: SideKey, index: number, position: FrezNotchPosition, value: boolean) => void;
+  setFlangeRelief: (side: SideKey, index: number, position: "start" | "end", value: boolean) => void;
   setCornerRelief: (corner: CornerKey, axis: CornerReliefAxis, value: boolean) => void;
   loadPreset: (index: number) => void;
   startNewDesign: () => void;
@@ -154,7 +155,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
   function addFlange(side: SideKey) {
     patchSide(side, (draft) => {
       const amount = draft.flanges.length === 0 ? 25 : 20;
-      return { ...draft, flanges: [...draft.flanges, createMeasurement(amount)] };
+      return { ...draft, flanges: [...draft.flanges, createFlangeMeasurement(amount)] };
     });
   }
 
@@ -195,6 +196,23 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
               },
             }
           : line,
+      ),
+    }));
+  }
+
+  function setFlangeRelief(side: SideKey, index: number, position: "start" | "end", value: boolean) {
+    patchSide(side, (draft) => ({
+      ...draft,
+      flanges: draft.flanges.map((flange, flangeIndex) =>
+        flangeIndex === index
+          ? {
+              ...flange,
+              reliefs: {
+                ...flange.reliefs,
+                [position]: value,
+              },
+            }
+          : flange,
       ),
     }));
   }
@@ -331,6 +349,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
         removeFrez,
         setFrezMode,
         setFrezNotch,
+        setFlangeRelief,
         setCornerRelief,
         loadPreset,
         startNewDesign,

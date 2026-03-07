@@ -1,7 +1,7 @@
 import {
   createEmptyModel,
   createFrezMeasurement,
-  createMeasurement,
+  createFlangeMeasurement,
   type Preset,
   type SheetMetalModel,
 } from "@/features/sheet-metal/types";
@@ -27,22 +27,22 @@ export const presetLibrary: Preset[] = [
       invertY: false,
       sides: {
         top: {
-          flanges: [createMeasurement(26)],
+          flanges: [createFlangeMeasurement(26)],
           frezLines: [],
           frezMode: "inner",
         },
         right: {
-          flanges: [createMeasurement(28)],
+          flanges: [createFlangeMeasurement(28)],
           frezLines: [],
           frezMode: "inner",
         },
         bottom: {
-          flanges: [createMeasurement(142)],
+          flanges: [createFlangeMeasurement(142)],
           frezLines: [createFrezMeasurement(116, { start: true, end: true })],
           frezMode: "inner",
         },
         left: {
-          flanges: [createMeasurement(30)],
+          flanges: [createFlangeMeasurement(30)],
           frezLines: [createFrezMeasurement(220, { start: true, end: true })],
           frezMode: "inner",
         },
