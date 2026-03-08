@@ -120,18 +120,7 @@ function collectWarnings(model: SheetMetalModel, flangeDepths: Record<SideKey, n
   return warnings;
 }
 
-function intersectLines(
-  x1: number, y1: number, x2: number, y2: number,
-  x3: number, y3: number, x4: number, y4: number
-) {
-  const det = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-  if (Math.abs(det) < 1e-6) return null;
-  const t1 = x1 * y2 - y1 * x2;
-  const t2 = x3 * y4 - y3 * x4;
-  const x = (t1 * (x3 - x4) - (x1 - x2) * t2) / det;
-  const y = (t1 * (y3 - y4) - (y1 - y2) * t2) / det;
-  return { x, y };
-}
+
 
 function addHorizontalCutEdge(
   shapes: LineShape[],
@@ -153,31 +142,14 @@ function addHorizontalCutEdge(
   path.push({ x: -1e9, y: yEdge });
 
   for (const notch of sorted) {
-    const halfWidth = Math.abs(yEdge - notch.apexY);
-    const p1 = { x: notch.apexX - halfWidth, y: yEdge };
-    const p2 = { x: notch.apexX, y: notch.apexY };
-    const p3 = { x: notch.apexX + halfWidth, y: yEdge };
+    const shoulderOff = Math.abs(notch.shoulderY - notch.apexY);
+    const p1 = { x: notch.apexX - shoulderOff, y: yEdge };
+    const p2 = { x: notch.apexX - shoulderOff, y: notch.shoulderY };
+    const p3 = { x: notch.apexX, y: notch.apexY };
+    const p4 = { x: notch.apexX + shoulderOff, y: notch.shoulderY };
+    const p5 = { x: notch.apexX + shoulderOff, y: yEdge };
 
-    const lastP = path[path.length - 1];
-
-    if (p1.x < lastP.x) {
-      if (path.length >= 2) {
-        const prevP = path[path.length - 2];
-        const intP = intersectLines(prevP.x, prevP.y, lastP.x, lastP.y, p1.x, p1.y, p2.x, p2.y);
-        if (intP) {
-          path[path.length - 1] = intP;
-          path.push(p2);
-          path.push(p3);
-          continue;
-        }
-      }
-      path[path.length - 1] = p2;
-      path.push(p3);
-    } else {
-      path.push(p1);
-      path.push(p2);
-      path.push(p3);
-    }
+    path.push(p1, p2, p3, p4, p5);
   }
 
   path.push({ x: 1e9, y: yEdge });
@@ -232,31 +204,14 @@ function addVerticalCutEdge(
   path.push({ x: xEdge, y: 1e9 });
 
   for (const notch of sorted) {
-    const halfHeight = Math.abs(xEdge - notch.apexX);
-    const p1 = { x: xEdge, y: notch.apexY + halfHeight };
-    const p2 = { x: notch.apexX, y: notch.apexY };
-    const p3 = { x: xEdge, y: notch.apexY - halfHeight };
+    const shoulderOff = Math.abs(notch.shoulderX - notch.apexX);
+    const p1 = { x: xEdge, y: notch.apexY + shoulderOff };
+    const p2 = { x: notch.shoulderX, y: notch.apexY + shoulderOff };
+    const p3 = { x: notch.apexX, y: notch.apexY };
+    const p4 = { x: notch.shoulderX, y: notch.apexY - shoulderOff };
+    const p5 = { x: xEdge, y: notch.apexY - shoulderOff };
 
-    const lastP = path[path.length - 1];
-
-    if (p1.y > lastP.y) {
-      if (path.length >= 2) {
-        const prevP = path[path.length - 2];
-        const intP = intersectLines(prevP.x, prevP.y, lastP.x, lastP.y, p1.x, p1.y, p2.x, p2.y);
-        if (intP) {
-          path[path.length - 1] = intP;
-          path.push(p2);
-          path.push(p3);
-          continue;
-        }
-      }
-      path[path.length - 1] = p2;
-      path.push(p3);
-    } else {
-      path.push(p1);
-      path.push(p2);
-      path.push(p3);
-    }
+    path.push(p1, p2, p3, p4, p5);
   }
 
   path.push({ x: xEdge, y: -1e9 });
