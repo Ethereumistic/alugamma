@@ -120,6 +120,19 @@ function collectWarnings(model: SheetMetalModel, flangeDepths: Record<SideKey, n
   return warnings;
 }
 
+function intersectLines(
+  x1: number, y1: number, x2: number, y2: number,
+  x3: number, y3: number, x4: number, y4: number
+) {
+  const det = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+  if (Math.abs(det) < 1e-6) return null;
+  const t1 = x1 * y2 - y1 * x2;
+  const t2 = x3 * y4 - y3 * x4;
+  const x = (t1 * (x3 - x4) - (x1 - x2) * t2) / det;
+  const y = (t1 * (y3 - y4) - (y1 - y2) * t2) / det;
+  return { x, y };
+}
+
 function addHorizontalCutEdge(
   shapes: LineShape[],
   yEdge: number,
@@ -136,37 +149,66 @@ function addHorizontalCutEdge(
     return;
   }
 
-  let cursor = startX;
+  const path: { x: number; y: number }[] = [];
+  path.push({ x: -1e9, y: yEdge });
 
   for (const notch of sorted) {
-    const halfWidth = Math.abs(notch.shoulderY - notch.apexY);
-    const leftShoulder = Math.max(startX, notch.apexX - halfWidth);
-    const rightShoulder = Math.min(endX, notch.apexX + halfWidth);
+    const halfWidth = Math.abs(yEdge - notch.apexY);
+    const p1 = { x: notch.apexX - halfWidth, y: yEdge };
+    const p2 = { x: notch.apexX, y: notch.apexY };
+    const p3 = { x: notch.apexX + halfWidth, y: yEdge };
 
-    if (rightShoulder <= cursor) {
-      continue;
+    const lastP = path[path.length - 1];
+
+    if (p1.x < lastP.x) {
+      if (path.length >= 2) {
+        const prevP = path[path.length - 2];
+        const intP = intersectLines(prevP.x, prevP.y, lastP.x, lastP.y, p1.x, p1.y, p2.x, p2.y);
+        if (intP) {
+          path[path.length - 1] = intP;
+          path.push(p2);
+          path.push(p3);
+          continue;
+        }
+      }
+      path[path.length - 1] = p2;
+      path.push(p3);
+    } else {
+      path.push(p1);
+      path.push(p2);
+      path.push(p3);
     }
-
-    if (cursor < leftShoulder) {
-      addLine(shapes, "CUT", cursor, yEdge, leftShoulder, yEdge);
-    }
-
-    if (notch.shoulderY !== yEdge) {
-      addLine(shapes, "CUT", leftShoulder, yEdge, leftShoulder, notch.shoulderY);
-    }
-
-    addLine(shapes, "CUT", leftShoulder, notch.shoulderY, notch.apexX, notch.apexY);
-    addLine(shapes, "CUT", notch.apexX, notch.apexY, rightShoulder, notch.shoulderY);
-
-    if (notch.shoulderY !== yEdge) {
-      addLine(shapes, "CUT", rightShoulder, notch.shoulderY, rightShoulder, yEdge);
-    }
-
-    cursor = rightShoulder;
   }
 
-  if (cursor < endX) {
-    addLine(shapes, "CUT", cursor, yEdge, endX, yEdge);
+  path.push({ x: 1e9, y: yEdge });
+
+  for (let i = 0; i < path.length - 1; i++) {
+    let pA = path[i];
+    let pB = path[i + 1];
+
+    if (Math.min(pA.x, pB.x) > endX) continue;
+    if (Math.max(pA.x, pB.x) < startX) continue;
+
+    let x1 = pA.x, y1 = pA.y;
+    let x2 = pB.x, y2 = pB.y;
+
+    if (x1 < startX) {
+      y1 = pA.y + (startX - pA.x) * (pB.y - pA.y) / (pB.x - pA.x);
+      x1 = startX;
+    } else if (x1 > endX) {
+      y1 = pA.y + (endX - pA.x) * (pB.y - pA.y) / (pB.x - pA.x);
+      x1 = endX;
+    }
+
+    if (x2 < startX) {
+      y2 = pA.y + (startX - pA.x) * (pB.y - pA.y) / (pB.x - pA.x);
+      x2 = startX;
+    } else if (x2 > endX) {
+      y2 = pA.y + (endX - pA.x) * (pB.y - pA.y) / (pB.x - pA.x);
+      x2 = endX;
+    }
+
+    addLine(shapes, "CUT", x1, y1, x2, y2);
   }
 }
 
@@ -179,44 +221,73 @@ function addVerticalCutEdge(
 ) {
   const sorted = [...notches]
     .filter((notch) => notch.apexY < startY && notch.apexY > endY)
-    .sort((top, bottom) => bottom.apexY - top.apexY);
+    .sort((a, b) => b.apexY - a.apexY);
 
   if (sorted.length === 0) {
     addLine(shapes, "CUT", xEdge, startY, xEdge, endY);
     return;
   }
 
-  let cursor = startY;
+  const path: { x: number; y: number }[] = [];
+  path.push({ x: xEdge, y: 1e9 });
 
   for (const notch of sorted) {
-    const halfHeight = Math.abs(notch.shoulderX - notch.apexX);
-    const upperShoulder = Math.min(startY, notch.apexY + halfHeight);
-    const lowerShoulder = Math.max(endY, notch.apexY - halfHeight);
+    const halfHeight = Math.abs(xEdge - notch.apexX);
+    const p1 = { x: xEdge, y: notch.apexY + halfHeight };
+    const p2 = { x: notch.apexX, y: notch.apexY };
+    const p3 = { x: xEdge, y: notch.apexY - halfHeight };
 
-    if (lowerShoulder >= cursor) {
-      continue;
+    const lastP = path[path.length - 1];
+
+    if (p1.y > lastP.y) {
+      if (path.length >= 2) {
+        const prevP = path[path.length - 2];
+        const intP = intersectLines(prevP.x, prevP.y, lastP.x, lastP.y, p1.x, p1.y, p2.x, p2.y);
+        if (intP) {
+          path[path.length - 1] = intP;
+          path.push(p2);
+          path.push(p3);
+          continue;
+        }
+      }
+      path[path.length - 1] = p2;
+      path.push(p3);
+    } else {
+      path.push(p1);
+      path.push(p2);
+      path.push(p3);
     }
-
-    if (cursor > upperShoulder) {
-      addLine(shapes, "CUT", xEdge, cursor, xEdge, upperShoulder);
-    }
-
-    if (notch.shoulderX !== xEdge) {
-      addLine(shapes, "CUT", xEdge, upperShoulder, notch.shoulderX, upperShoulder);
-    }
-
-    addLine(shapes, "CUT", notch.shoulderX, upperShoulder, notch.apexX, notch.apexY);
-    addLine(shapes, "CUT", notch.apexX, notch.apexY, notch.shoulderX, lowerShoulder);
-
-    if (notch.shoulderX !== xEdge) {
-      addLine(shapes, "CUT", notch.shoulderX, lowerShoulder, xEdge, lowerShoulder);
-    }
-
-    cursor = lowerShoulder;
   }
 
-  if (cursor > endY) {
-    addLine(shapes, "CUT", xEdge, cursor, xEdge, endY);
+  path.push({ x: xEdge, y: -1e9 });
+
+  for (let i = 0; i < path.length - 1; i++) {
+    let pA = path[i];
+    let pB = path[i + 1];
+
+    if (Math.min(pA.y, pB.y) > startY) continue;
+    if (Math.max(pA.y, pB.y) < endY) continue;
+
+    let x1 = pA.x, y1 = pA.y;
+    let x2 = pB.x, y2 = pB.y;
+
+    if (y1 > startY) {
+      x1 = pA.x + (startY - pA.y) * (pB.x - pA.x) / (pB.y - pA.y);
+      y1 = startY;
+    } else if (y1 < endY) {
+      x1 = pA.x + (endY - pA.y) * (pB.x - pA.x) / (pB.y - pA.y);
+      y1 = endY;
+    }
+
+    if (y2 > startY) {
+      x2 = pA.x + (startY - pA.y) * (pB.x - pA.x) / (pB.y - pA.y);
+      y2 = startY;
+    } else if (y2 < endY) {
+      x2 = pA.x + (endY - pA.y) * (pB.x - pA.x) / (pB.y - pA.y);
+      y2 = endY;
+    }
+
+    addLine(shapes, "CUT", x1, y1, x2, y2);
   }
 }
 

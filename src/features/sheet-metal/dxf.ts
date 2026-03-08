@@ -69,13 +69,18 @@ export function buildDxf(geometry: GeometryResult, designName: string, modelConf
     // vertical centering: subtract roughly half height
     const textY = cy - textHeight / 2;
 
-    const textDxf = `  0\nTEXT\n  8\n0\n 10\n${textX}\n 20\n${textY}\n 40\n${textHeight}\n  1\n${designName.trim()}\n`;
-    const entitiesEndMarker = "  0\nENDSEC";
+    const textDxf = `0\nTEXT\n8\n0\n10\n${textX}\n20\n${textY}\n40\n${textHeight}\n1\n${designName.trim()}\n`;
 
-    // Inject TEXT entity right before ENDSEC in the ENTITIES block
-    const entitiesBlockEndIdx = dxfString.indexOf(entitiesEndMarker);
-    if (entitiesBlockEndIdx !== -1) {
-      dxfString = dxfString.slice(0, entitiesBlockEndIdx) + textDxf + dxfString.slice(entitiesBlockEndIdx);
+    // Inject TEXT entity right before the ENDSEC of the ENTITIES section
+    const entitiesSectionIdx = dxfString.indexOf("ENTITIES");
+    if (entitiesSectionIdx !== -1) {
+      const lineEnding = dxfString.includes("\r\n") ? "\r\n" : "\n";
+      const endsecMatch = dxfString.indexOf(`0${lineEnding}ENDSEC`, entitiesSectionIdx);
+
+      if (endsecMatch !== -1) {
+        const formattedTextDxf = textDxf.replace(/\n/g, lineEnding);
+        dxfString = dxfString.slice(0, endsecMatch) + formattedTextDxf + dxfString.slice(endsecMatch);
+      }
     }
   }
 
