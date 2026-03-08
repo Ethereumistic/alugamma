@@ -559,7 +559,7 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
   const offset = model.offsetCut;
   const dDiag = offset * Math.SQRT2;
 
-  function offsetHorizontalNotches(notches: HorizontalNotch[], dirY: 1 | -1) {
+  function offsetHorizontalNotches(notches: HorizontalNotch[], dirY: 1 | -1, unoffsetEdgeY: number) {
     if (offset === 0) return notches;
     const finalNotches: HorizontalNotch[] = [];
     for (const n of notches) {
@@ -567,7 +567,8 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
       const initialSign = Math.sign(n.shoulderY - n.apexY);
 
       const originalS = Math.abs(n.shoulderY - n.apexY);
-      const newS = originalS - offset * (Math.SQRT2 - 1);
+      const isOuterEdge = Math.abs(n.shoulderY - unoffsetEdgeY) < 1e-4;
+      const newS = isOuterEdge ? (originalS - offset * (Math.SQRT2 - 1)) : (originalS - offset);
       if (newS <= 0) continue;
 
       const newApexY = n.apexY + dirY * dDiag;
@@ -579,7 +580,7 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
     return finalNotches;
   }
 
-  function offsetVerticalNotches(notches: VerticalNotch[], dirX: 1 | -1) {
+  function offsetVerticalNotches(notches: VerticalNotch[], dirX: 1 | -1, unoffsetEdgeX: number) {
     if (offset === 0) return notches;
     const finalNotches: VerticalNotch[] = [];
     for (const n of notches) {
@@ -587,7 +588,8 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
       const initialSign = Math.sign(n.shoulderX - n.apexX);
 
       const originalS = Math.abs(n.shoulderX - n.apexX);
-      const newS = originalS - offset * (Math.SQRT2 - 1);
+      const isOuterEdge = Math.abs(n.shoulderX - unoffsetEdgeX) < 1e-4;
+      const newS = isOuterEdge ? (originalS - offset * (Math.SQRT2 - 1)) : (originalS - offset);
       if (newS <= 0) continue;
 
       const newApexX = n.apexX + dirX * dDiag;
@@ -599,10 +601,10 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
     return finalNotches;
   }
 
-  const finalTopNotches = offsetHorizontalNotches(topNotches, 1);
-  const finalBottomNotches = offsetHorizontalNotches(bottomNotches, -1);
-  const finalLeftNotches = offsetVerticalNotches(leftNotches, -1);
-  const finalRightNotches = offsetVerticalNotches(rightNotches, 1);
+  const finalTopNotches = offsetHorizontalNotches(topNotches, 1, outerTop - offset);
+  const finalBottomNotches = offsetHorizontalNotches(bottomNotches, -1, outerBottom + offset);
+  const finalLeftNotches = offsetVerticalNotches(leftNotches, -1, outerLeft + offset);
+  const finalRightNotches = offsetVerticalNotches(rightNotches, 1, outerRight - offset);
 
   addHorizontalCutEdge(shapes, outerTop, topSpanStart, topSpanEnd, finalTopNotches);
   addHorizontalCutEdge(shapes, outerBottom, bottomSpanStart, bottomSpanEnd, finalBottomNotches);
