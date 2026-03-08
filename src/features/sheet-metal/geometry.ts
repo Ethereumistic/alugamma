@@ -286,6 +286,11 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
   const x1 = x0 + model.baseWidth;
   const y1 = y0 + model.baseHeight;
 
+  const cutX0 = x0 - model.offsetCut;
+  const cutY0 = y0 - model.offsetCut;
+  const cutX1 = x1 + model.offsetCut;
+  const cutY1 = y1 + model.offsetCut;
+
   const outerLeft = -model.offsetCut;
   const outerBottom = -model.offsetCut;
   const outerRight = model.baseWidth + flangeDepths.left + flangeDepths.right + model.offsetCut;
@@ -318,14 +323,14 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
     model.sides.bottom.frezLines.some((f) => f.notches.start) ||
     model.sides.left.frezLines.some((f) => f.notches.end);
 
-  const topSpanStart = hasTopLeftRelief ? outerLeft : x0;
-  const topSpanEnd = hasTopRightRelief ? outerRight : x1;
-  const bottomSpanStart = hasBottomLeftRelief ? outerLeft : x0;
-  const bottomSpanEnd = hasBottomRightRelief ? outerRight : x1;
-  const leftSpanTop = hasTopLeftRelief ? outerTop : y1;
-  const leftSpanBottom = hasBottomLeftRelief ? outerBottom : y0;
-  const rightSpanTop = hasTopRightRelief ? outerTop : y1;
-  const rightSpanBottom = hasBottomRightRelief ? outerBottom : y0;
+  const topSpanStart = hasTopLeftRelief ? outerLeft : cutX0;
+  const topSpanEnd = hasTopRightRelief ? outerRight : cutX1;
+  const bottomSpanStart = hasBottomLeftRelief ? outerLeft : cutX0;
+  const bottomSpanEnd = hasBottomRightRelief ? outerRight : cutX1;
+  const leftSpanTop = hasTopLeftRelief ? outerTop : cutY1;
+  const leftSpanBottom = hasBottomLeftRelief ? outerBottom : cutY0;
+  const rightSpanTop = hasTopRightRelief ? outerTop : cutY1;
+  const rightSpanBottom = hasBottomRightRelief ? outerBottom : cutY0;
 
   if (model.sides.top.flanges.length > 0) {
     addLine(shapes, "FREZ", topSpanStart, y1, topSpanEnd, y1);
@@ -478,23 +483,23 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
   addVerticalCutEdge(shapes, outerLeft, leftSpanTop, leftSpanBottom, leftNotches);
 
   if (!hasTopRightRelief) {
-    if (outerTop > y1) addLine(shapes, "CUT", x1, outerTop, x1, y1);
-    if (outerRight > x1) addLine(shapes, "CUT", x1, y1, outerRight, y1);
+    if (outerTop > cutY1) addLine(shapes, "CUT", cutX1, outerTop, cutX1, cutY1);
+    if (outerRight > cutX1) addLine(shapes, "CUT", cutX1, cutY1, outerRight, cutY1);
   }
 
   if (!hasBottomRightRelief) {
-    if (outerRight > x1) addLine(shapes, "CUT", outerRight, y0, x1, y0);
-    if (outerBottom < y0) addLine(shapes, "CUT", x1, y0, x1, outerBottom);
+    if (outerRight > cutX1) addLine(shapes, "CUT", outerRight, cutY0, cutX1, cutY0);
+    if (outerBottom < cutY0) addLine(shapes, "CUT", cutX1, cutY0, cutX1, outerBottom);
   }
 
   if (!hasBottomLeftRelief) {
-    if (outerBottom < y0) addLine(shapes, "CUT", x0, outerBottom, x0, y0);
-    if (outerLeft < x0) addLine(shapes, "CUT", x0, y0, outerLeft, y0);
+    if (outerBottom < cutY0) addLine(shapes, "CUT", cutX0, outerBottom, cutX0, cutY0);
+    if (outerLeft < cutX0) addLine(shapes, "CUT", cutX0, cutY0, outerLeft, cutY0);
   }
 
   if (!hasTopLeftRelief) {
-    if (outerLeft < x0) addLine(shapes, "CUT", outerLeft, y1, x0, y1);
-    if (outerTop > y1) addLine(shapes, "CUT", x0, y1, x0, outerTop);
+    if (outerLeft < cutX0) addLine(shapes, "CUT", outerLeft, cutY1, cutX0, cutY1);
+    if (outerTop > cutY1) addLine(shapes, "CUT", cutX0, cutY1, cutX0, outerTop);
   }
 
   if (model.invertX) {
