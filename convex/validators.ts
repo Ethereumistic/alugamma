@@ -56,6 +56,9 @@ export const sheetModelValidator = v.object({
   invertX: v.boolean(),
   invertY: v.boolean(),
   offsetCut: v.optional(v.number()),
+  includeName: v.optional(v.boolean()),
+  includeArrow: v.optional(v.boolean()),
+  arrowDirection: v.optional(v.union(v.literal("top"), v.literal("right"), v.literal("bottom"), v.literal("left"))),
   sides: v.object({
     top: sideConfigValidator,
     right: sideConfigValidator,

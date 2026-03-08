@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useSheetMetal } from "@/features/sheet-metal/context";
 import { countShapes, getSideTotal } from "@/features/sheet-metal/geometry";
 import { PreviewCanvas } from "@/features/sheet-metal/preview-canvas";
@@ -54,6 +55,9 @@ export default function SheetMetalApp() {
     setFrezMode,
     setFrezNotch,
     setFlangeRelief,
+    setIncludeName,
+    setIncludeArrow,
+    setArrowDirection,
     loadSavedDesign,
   } = useSheetMetal();
   const {
@@ -166,13 +170,12 @@ export default function SheetMetalApp() {
     <div className="mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 py-6 lg:px-8">
       {status && (
         <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${
-            status.tone === "error"
-              ? "border-destructive/30 bg-destructive/10 text-destructive"
-              : status.tone === "success"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
-                : "border-white/10 bg-black/20 text-slate-200"
-          }`}
+          className={`rounded-2xl border px-4 py-3 text-sm ${status.tone === "error"
+            ? "border-destructive/30 bg-destructive/10 text-destructive"
+            : status.tone === "success"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
+              : "border-white/10 bg-black/20 text-slate-200"
+            }`}
         >
           {status.message}
         </div>
@@ -205,17 +208,60 @@ export default function SheetMetalApp() {
           })}
           <Card className="border-white/10 bg-card/80">
             <CardHeader className="border-b border-white/5 bg-white/[0.02] pb-3">
-              <CardTitle>Current totals</CardTitle>
+              <CardTitle>Export Options & Totals</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 pt-4">
-              {allSideKeys.map((side) => (
-                <div key={side} className="flex justify-between rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-sm">
-                  <span className={`font-medium ${sideMeta[side].accentClass}`}>{sideMeta[side].label}</span>
-                  <span className="font-mono text-muted-foreground">
-                    {getSideTotal(model, side, "flanges")}/{getSideTotal(model, side, "frezLines")}
-                  </span>
+            <CardContent className="space-y-4 pt-4">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">DXF Export</p>
+
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/5 bg-black/20 p-3 transition-colors hover:bg-white/[0.02]">
+                  <span className="text-sm text-foreground">Include sheet name</span>
+                  <Checkbox
+                    checked={model.includeName}
+                    onCheckedChange={(checked) => setIncludeName(checked === true)}
+                    className="h-4 w-4 border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
+                  />
+                </label>
+
+                <div className="space-y-2 rounded-lg border border-white/5 bg-black/20 p-3">
+                  <label className="flex cursor-pointer items-center justify-between gap-3">
+                    <span className="text-sm text-foreground">Include directional arrow</span>
+                    <Checkbox
+                      checked={model.includeArrow}
+                      onCheckedChange={(checked) => setIncludeArrow(checked === true)}
+                      className="h-4 w-4 border-white/20 data-[state=checked]:border-blue-500 data-[state=checked]:bg-blue-500"
+                    />
+                  </label>
+
+                  {model.includeArrow && (
+                    <div className="mt-3 flex gap-2">
+                      {allSideKeys.map((dir) => (
+                        <Button
+                          key={dir}
+                          variant={model.arrowDirection === dir ? "default" : "secondary"}
+                          size="sm"
+                          className={`flex-1 capitalize ${model.arrowDirection === dir ? "bg-blue-600 hover:bg-blue-500 text-white" : ""}`}
+                          onClick={() => setArrowDirection(dir)}
+                        >
+                          {dir}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3 mt-4">Current Totals</p>
+                {allSideKeys.map((side) => (
+                  <div key={side} className="flex justify-between rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-sm">
+                    <span className={`font-medium ${sideMeta[side].accentClass}`}>{sideMeta[side].label}</span>
+                    <span className="font-mono text-muted-foreground">
+                      {getSideTotal(model, side, "flanges")}/{getSideTotal(model, side, "frezLines")}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </aside>

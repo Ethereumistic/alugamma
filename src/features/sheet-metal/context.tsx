@@ -56,6 +56,9 @@ type SheetMetalContextType = {
   status: SheetMetalStatus | null;
   setBaseValue: (key: "baseWidth" | "baseHeight", value: number) => void;
   setOffsetCut: (value: number) => void;
+  setIncludeName: (value: boolean) => void;
+  setIncludeArrow: (value: boolean) => void;
+  setArrowDirection: (direction: SideKey) => void;
   setInvert: (axis: "invertX" | "invertY", value: boolean) => void;
   addFlange: (side: SideKey) => void;
   addFrez: (side: SideKey) => void;
@@ -150,6 +153,27 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     }));
   }
 
+  function setIncludeName(value: boolean) {
+    setModel((current) => ({
+      ...current,
+      includeName: value,
+    }));
+  }
+
+  function setIncludeArrow(value: boolean) {
+    setModel((current) => ({
+      ...current,
+      includeArrow: value,
+    }));
+  }
+
+  function setArrowDirection(direction: SideKey) {
+    setModel((current) => ({
+      ...current,
+      arrowDirection: direction,
+    }));
+  }
+
   function patchSide(
     side: SideKey,
     updater: (draft: SheetMetalModel["sides"][SideKey]) => SheetMetalModel["sides"][SideKey],
@@ -197,12 +221,12 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
       frezLines: draft.frezLines.map((line, lineIndex) =>
         lineIndex === index
           ? {
-              ...line,
-              notches: {
-                ...line.notches,
-                [position]: value,
-              },
-            }
+            ...line,
+            notches: {
+              ...line.notches,
+              [position]: value,
+            },
+          }
           : line,
       ),
     }));
@@ -214,12 +238,12 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
       flanges: draft.flanges.map((flange, flangeIndex) =>
         flangeIndex === index
           ? {
-              ...flange,
-              reliefs: {
-                ...flange.reliefs,
-                [position]: value,
-              },
-            }
+            ...flange,
+            reliefs: {
+              ...flange.reliefs,
+              [position]: value,
+            },
+          }
           : flange,
       ),
     }));
@@ -324,7 +348,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    const contents = buildDxf(geometry.shapes);
+    const contents = buildDxf(geometry, designName, model);
     const blob = new Blob([contents], { type: "application/dxf" });
     const link = document.createElement("a");
 
@@ -349,6 +373,9 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
         status,
         setBaseValue,
         setOffsetCut,
+        setIncludeName,
+        setIncludeArrow,
+        setArrowDirection,
         setInvert,
         addFlange,
         addFrez,

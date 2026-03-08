@@ -478,10 +478,46 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
     }
   });
 
-  addHorizontalCutEdge(shapes, outerTop, topSpanStart, topSpanEnd, topNotches);
-  addHorizontalCutEdge(shapes, outerBottom, bottomSpanStart, bottomSpanEnd, bottomNotches);
-  addVerticalCutEdge(shapes, outerRight, rightSpanTop, rightSpanBottom, rightNotches);
-  addVerticalCutEdge(shapes, outerLeft, leftSpanTop, leftSpanBottom, leftNotches);
+  const offset = model.offsetCut;
+  const dDiag = offset * Math.SQRT2;
+
+  function offsetHorizontalNotches(notches: HorizontalNotch[], dirY: 1 | -1) {
+    if (offset === 0) return notches;
+    const finalNotches: HorizontalNotch[] = [];
+    for (const n of notches) {
+      if (n.shoulderY === n.apexY) continue;
+      const initialSign = Math.sign(n.shoulderY - n.apexY);
+      const newApexY = n.apexY + dirY * dDiag;
+      const newShoulderY = n.shoulderY + dirY * offset;
+      if (Math.sign(newShoulderY - newApexY) !== initialSign) continue;
+      finalNotches.push({ apexX: n.apexX, apexY: newApexY, shoulderY: newShoulderY });
+    }
+    return finalNotches;
+  }
+
+  function offsetVerticalNotches(notches: VerticalNotch[], dirX: 1 | -1) {
+    if (offset === 0) return notches;
+    const finalNotches: VerticalNotch[] = [];
+    for (const n of notches) {
+      if (n.shoulderX === n.apexX) continue;
+      const initialSign = Math.sign(n.shoulderX - n.apexX);
+      const newApexX = n.apexX + dirX * dDiag;
+      const newShoulderX = n.shoulderX + dirX * offset;
+      if (Math.sign(newShoulderX - newApexX) !== initialSign) continue;
+      finalNotches.push({ apexX: newApexX, apexY: n.apexY, shoulderX: newShoulderX });
+    }
+    return finalNotches;
+  }
+
+  const finalTopNotches = offsetHorizontalNotches(topNotches, 1);
+  const finalBottomNotches = offsetHorizontalNotches(bottomNotches, -1);
+  const finalLeftNotches = offsetVerticalNotches(leftNotches, -1);
+  const finalRightNotches = offsetVerticalNotches(rightNotches, 1);
+
+  addHorizontalCutEdge(shapes, outerTop, topSpanStart, topSpanEnd, finalTopNotches);
+  addHorizontalCutEdge(shapes, outerBottom, bottomSpanStart, bottomSpanEnd, finalBottomNotches);
+  addVerticalCutEdge(shapes, outerRight, rightSpanTop, rightSpanBottom, finalRightNotches);
+  addVerticalCutEdge(shapes, outerLeft, leftSpanTop, leftSpanBottom, finalLeftNotches);
 
   if (!hasTopRightRelief) {
     if (outerTop > cutY1) addLine(shapes, "CUT", cutX1, outerTop, cutX1, cutY1);

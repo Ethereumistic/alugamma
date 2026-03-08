@@ -48,6 +48,9 @@ export type SheetMetalModel = {
   invertX: boolean;
   invertY: boolean;
   offsetCut: number;
+  includeName: boolean;
+  includeArrow: boolean;
+  arrowDirection: SideKey;
   sides: Record<SideKey, SideConfig>;
   cornerReliefs: Record<CornerKey, CornerReliefAxes>;
 };
@@ -136,6 +139,9 @@ export function createEmptyModel(): SheetMetalModel {
     invertX: false,
     invertY: false,
     offsetCut: 3,
+    includeName: true,
+    includeArrow: true,
+    arrowDirection: "top",
     sides: {
       top: createEmptySide(),
       right: createEmptySide(),
@@ -278,6 +284,9 @@ export function normalizeSheetMetalModel(model: SheetMetalModel): SheetMetalMode
   return {
     ...model,
     offsetCut: typeof model.offsetCut === "number" ? model.offsetCut : 3,
+    includeName: typeof model.includeName === "boolean" ? model.includeName : true,
+    includeArrow: typeof model.includeArrow === "boolean" ? model.includeArrow : true,
+    arrowDirection: sideKeys.includes(model.arrowDirection) ? model.arrowDirection : "top",
     sides: {
       top: normalizeSideConfig(model.sides.top),
       right: normalizeSideConfig(model.sides.right),
