@@ -251,17 +251,7 @@ export default function SheetMetalApp() {
                 </div>
               </div>
 
-              <div className="space-y-2 pt-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3 mt-4">Current Totals</p>
-                {allSideKeys.map((side) => (
-                  <div key={side} className="flex justify-between rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-sm">
-                    <span className={`font-medium ${sideMeta[side].accentClass}`}>{sideMeta[side].label}</span>
-                    <span className="font-mono text-muted-foreground">
-                      {getSideTotal(model, side, "flanges")}/{getSideTotal(model, side, "frezLines")}
-                    </span>
-                  </div>
-                ))}
-              </div>
+
             </CardContent>
           </Card>
         </aside>

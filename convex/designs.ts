@@ -41,6 +41,34 @@ function normalizeMeasurementEntry(value: unknown, fallbackAmount: number) {
   };
 }
 
+function normalizeFlangeMeasurementEntry(value: unknown) {
+  const measurement = normalizeMeasurementEntry(value, 20);
+
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    const reliefs = record.reliefs;
+
+    if (reliefs && typeof reliefs === "object" && !Array.isArray(reliefs)) {
+      const reliefRecord = reliefs as Record<string, unknown>;
+      return {
+        ...measurement,
+        reliefs: {
+          start: reliefRecord.start === true,
+          end: reliefRecord.end === true,
+        },
+      };
+    }
+  }
+
+  return {
+    ...measurement,
+    reliefs: {
+      start: false,
+      end: false,
+    },
+  };
+}
+
 function normalizeFrezMeasurementEntry(value: unknown) {
   const measurement = normalizeMeasurementEntry(value, 24);
 
@@ -73,7 +101,7 @@ function normalizeSideConfig(value: unknown) {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const record = value as Record<string, unknown>;
     return {
-      flanges: Array.isArray(record.flanges) ? record.flanges.map((item) => normalizeMeasurementEntry(item, 20)) : [],
+      flanges: Array.isArray(record.flanges) ? record.flanges.map((item) => normalizeFlangeMeasurementEntry(item)) : [],
       frezLines: Array.isArray(record.frezLines) ? record.frezLines.map((item) => normalizeFrezMeasurementEntry(item)) : [],
       frezMode: record.frezMode === "outer" ? "outer" : "inner",
     };
@@ -89,6 +117,10 @@ function normalizeSideConfig(value: unknown) {
 function normalizeSheetModel(model: any) {
   return {
     ...model,
+    offsetCut: typeof model.offsetCut === "number" ? model.offsetCut : 3,
+    includeName: typeof model.includeName === "boolean" ? model.includeName : true,
+    includeArrow: typeof model.includeArrow === "boolean" ? model.includeArrow : true,
+    arrowDirection: ["top", "right", "bottom", "left"].includes(model.arrowDirection) ? model.arrowDirection : "top",
     sides: {
       top: normalizeSideConfig(model.sides?.top),
       right: normalizeSideConfig(model.sides?.right),
