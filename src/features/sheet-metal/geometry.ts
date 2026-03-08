@@ -3,6 +3,7 @@ import {
   type FrezMeasurement,
   type GeometryResult,
   type LineShape,
+  type Layer,
   type Measurement,
   type SheetMetalModel,
   type SideKey,
@@ -277,7 +278,7 @@ function addFrezDrivenVerticalNotches(
   });
 }
 
-export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
+function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
   const shapes: LineShape[] = [];
   const flangeDepths = getFlangeDepths(model);
 
@@ -525,6 +526,26 @@ export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResul
     flangeDepths,
     frezOffsets,
     warnings: collectWarnings(model, flangeDepths),
+  };
+}
+
+export function computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
+  const modelZeroOffset = { ...model, offsetCut: 0 };
+  const zeroResult = _computeSheetMetalGeometry(modelZeroOffset);
+
+  if (model.offsetCut === 0) {
+    return zeroResult;
+  }
+
+  const offsetResult = _computeSheetMetalGeometry(model);
+
+  const frezShapes = zeroResult.shapes.filter(s => s.layer === "FREZ");
+  const zeroLayerShapes = zeroResult.shapes.filter(s => s.layer === "CUT").map(s => ({ ...s, layer: "0" as Layer }));
+  const cutLayerShapes = offsetResult.shapes.filter(s => s.layer === "CUT");
+
+  return {
+    ...offsetResult,
+    shapes: [...frezShapes, ...zeroLayerShapes, ...cutLayerShapes]
   };
 }
 
