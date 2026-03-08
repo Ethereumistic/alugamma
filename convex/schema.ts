@@ -63,6 +63,20 @@ export default defineSchema({
     .index("by_email_status", ["email", "status"])
     .index("by_project_email_status", ["projectId", "email", "status"])
     .index("by_project", ["projectId"]),
+  organizationInvites: defineTable({
+    organizationId: v.id("organizations"),
+    email: v.string(),
+    role: organizationRoleValidator,
+    status: inviteStatusValidator,
+    invitedBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.number(),
+    acceptedAt: v.optional(v.number()),
+  })
+    .index("by_email_status", ["email", "status"])
+    .index("by_organization_email_status", ["organizationId", "email", "status"])
+    .index("by_organization", ["organizationId"]),
   designs: defineTable({
     organizationId: v.id("organizations"),
     projectId: v.id("projects"),

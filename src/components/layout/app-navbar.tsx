@@ -1,10 +1,11 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link, useSearchParams, matchPath } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { useSheetMetal } from "@/features/sheet-metal/context";
 import { presetLibrary } from "@/features/sheet-metal/presets";
 import { useWorkspace } from "@/features/workspace/context";
@@ -42,7 +43,14 @@ function NavNumberField({
 export function AppNavbar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const isSheetMetal = location.pathname.startsWith("/sheet-metal");
+  const isHome = location.pathname === "/";
+  const isOrganizations = location.pathname === "/organization";
+  const isProjects = location.pathname === "/project";
+  const projectDetailMatch = matchPath("/project/:projectId", location.pathname);
+
   const {
     model,
     designName,
@@ -55,7 +63,7 @@ export function AppNavbar() {
     saveDesign,
     isSaving,
   } = useSheetMetal();
-  const { selectedProject } = useWorkspace();
+  const { selectedProject, selectedOrganization, selectedOrganizationId, selectedProjectId } = useWorkspace();
 
   async function handleSave() {
     const designId = await saveDesign();
@@ -74,6 +82,77 @@ export function AppNavbar() {
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center gap-4 border-b border-white/5 bg-card/60 px-6 backdrop-blur">
       <SidebarTrigger className="text-muted-foreground hover:text-white" />
+
+      {isHome && (
+        <div className="flex flex-1 items-center gap-4 text-sm">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/organization">Organizations</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/project">Projects</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" disabled={!selectedProjectId}>
+            <Link to={selectedProjectId ? `/project/${selectedProjectId}` : "#"}>Designs</Link>
+          </Button>
+        </div>
+      )}
+
+      {isOrganizations && (
+        <div className="flex flex-1 items-center gap-4">
+          <h1 className="text-sm font-semibold text-foreground">Organizations</h1>
+        </div>
+      )}
+
+      {isProjects && (
+        <div className="flex flex-1 items-center gap-4">
+          <h1 className="text-sm font-semibold text-foreground">Projects</h1>
+        </div>
+      )}
+
+      {projectDetailMatch && (
+        <div className="flex flex-1 items-center justify-between gap-4">
+          <div className="flex items-center gap-4 mt-0.5">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/">Home</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/organization">Organization</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Project Details</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Columns</span>
+            <Select
+              value={searchParams.get("cols") || "3"}
+              onValueChange={(val) => {
+                setSearchParams((prev) => {
+                  prev.set("cols", val);
+                  return prev;
+                });
+              }}
+            >
+              <SelectTrigger className="h-8 w-[80px] bg-black/20 text-xs">
+                <SelectValue placeholder="Cols" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">x1</SelectItem>
+                <SelectItem value="2">x2</SelectItem>
+                <SelectItem value="3">x3</SelectItem>
+                <SelectItem value="4">x4</SelectItem>
+                <SelectItem value="5">x5</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
 
       {isSheetMetal && (
         <div className="flex flex-1 items-center gap-4 overflow-x-auto">

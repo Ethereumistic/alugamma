@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/features/workspace/context";
 
 export default function ProjectPage() {
@@ -69,9 +71,42 @@ export default function ProjectPage() {
                                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                                     <span>{project.designs?.length ?? 0} design{(project.designs?.length ?? 0) !== 1 && "s"}</span>
                                 </div>
+
+                                {(project.designs?.length ?? 0) > 0 && (
+                                    <Accordion type="single" collapsible className="w-full">
+                                        <AccordionItem value="designs" className="border-white/10 border-b-0">
+                                            <AccordionTrigger className="py-2 text-sm hover:no-underline">
+                                                View Designs
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <div className="flex flex-col gap-2 pt-2">
+                                                    {project.designs.map(design => (
+                                                        <div key={design.id} className="flex items-center gap-2 rounded-md bg-white/5 px-3 py-2 text-sm">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="truncate font-medium">{design.name}</span>
+                                                                    {design.isStarred && <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px]">★</Badge>}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-1 shrink-0">
+                                                                <Button asChild variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                                                    <Link to={`/project/${project.id}/${design.id}`}>Preview</Link>
+                                                                </Button>
+                                                                <Button asChild variant="secondary" size="sm" className="h-6 px-2 text-xs">
+                                                                    <Link to={`/sheet-metal/${design.id}`}>Edit</Link>
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </Accordion>
+                                )}
+
                                 <div className="mt-auto pt-4">
                                     <Button asChild variant="secondary" className="w-full">
-                                        <Link to={`/project/${project.id}`}>View Project</Link>
+                                        <Link to={`/project/${project.id}`}>View Project Details</Link>
                                     </Button>
                                 </div>
                             </CardContent>

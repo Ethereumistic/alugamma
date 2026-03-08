@@ -13,7 +13,7 @@ import {
   requireViewer,
   slugify,
 } from "./helpers";
-import { projectRoleValidator } from "./validators";
+import { organizationRoleValidator, projectRoleValidator } from "./validators";
 
 async function nextOrganizationSlug(ctx: MutationCtx, name: string) {
   const base = slugify(name) || "organization";
@@ -215,6 +215,33 @@ export const viewerWorkspace = query({
         }),
     );
 
+    const pendingOrgInvites = viewer.email
+      ? await ctx.db
+        .query("organizationInvites")
+        .withIndex("by_email_status", (query) => query.eq("email", viewer.email).eq("status", "pending"))
+        .collect()
+      : [];
+
+    const orgInviteCards = await Promise.all(
+      pendingOrgInvites
+        .filter((invite) => invite.expiresAt > now)
+        .map(async (invite) => {
+          const organization = await ctx.db.get(invite.organizationId);
+          if (!organization) {
+            return null;
+          }
+
+          return {
+            id: invite._id,
+            organizationId: invite.organizationId,
+            organizationName: organization.name,
+            role: invite.role,
+            createdAt: invite.createdAt,
+            expiresAt: invite.expiresAt,
+          };
+        }),
+    );
+
     return {
       authenticated: true,
       viewer: {
@@ -224,8 +251,152 @@ export const viewerWorkspace = query({
       },
       organizations: organizations.filter(Boolean).sort((left, right) => left!.name.localeCompare(right!.name)),
       projects,
-      pendingInvites: inviteCards.filter(Boolean).sort((left, right) => left!.createdAt - right!.createdAt),
+      pendingInvites: inviteCards.filter(Boolean).sort((left, right) => (left?.createdAt || 0) - (right?.createdAt || 0)),
+      pendingOrgInvites: orgInviteCards.filter(Boolean).sort((left, right) => (left?.createdAt || 0) - (right?.createdAt || 0)),
     };
+  },
+});
+
+export const organizationAccessOverview = query({
+  args: {
+    organizationId: v.id("organizations"),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireOrganizationManager(ctx, args.organizationId);
+    if (!access) { throw new Error("Not authorized"); }
+    const memberships = await ctx.db
+      .query("organizationMembers")
+      .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
+      .collect();
+    const invites = await ctx.db.query("organizationInvites").withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId)).collect();
+
+    const members = await Promise.all(
+      memberships.map(async (membership) => {
+        const user = await ctx.db.get(membership.userId);
+        return {
+          id: membership._id,
+          userId: membership.userId,
+          name: user?.name ?? user?.email ?? "User",
+          email: user?.email ?? "",
+          role: membership.role,
+        };
+      }),
+    );
+
+    const organization = await ctx.db.get(args.organizationId);
+
+    return {
+      organization: {
+        id: args.organizationId,
+        name: organization?.name ?? "",
+        slug: organization?.slug ?? "",
+      },
+      members,
+      invites: invites
+        .filter((invite) => invite.status === "pending" && invite.expiresAt > Date.now())
+        .map((invite) => ({
+          id: invite._id,
+          email: invite.email,
+          role: invite.role,
+          createdAt: invite.createdAt,
+          expiresAt: invite.expiresAt,
+        })),
+      canManage: isOrganizationManager(access.membership?.role),
+    };
+  },
+});
+
+export const inviteToOrganization = mutation({
+  args: {
+    organizationId: v.id("organizations"),
+    email: v.string(),
+    role: organizationRoleValidator,
+  },
+  handler: async (ctx, args) => {
+    const access = await requireOrganizationManager(ctx, args.organizationId);
+    const email = normalizeEmail(args.email);
+
+    if (!email.includes("@")) {
+      throw new Error("Enter a valid email address.");
+    }
+
+    const now = Date.now();
+    const existingInvite = await ctx.db
+      .query("organizationInvites")
+      .withIndex("by_organization_email_status", (query) =>
+        query.eq("organizationId", args.organizationId).eq("email", email).eq("status", "pending"),
+      )
+      .unique();
+
+    if (existingInvite) {
+      await ctx.db.patch(existingInvite._id, {
+        role: args.role,
+        invitedBy: access.userId,
+        updatedAt: now,
+        expiresAt: now + 1000 * 60 * 60 * 24 * 14,
+      });
+      return { inviteId: existingInvite._id };
+    }
+
+    const inviteId = await ctx.db.insert("organizationInvites", {
+      organizationId: args.organizationId,
+      email,
+      role: args.role,
+      status: "pending",
+      invitedBy: access.userId,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt: now + 1000 * 60 * 60 * 24 * 14,
+    });
+
+    return { inviteId };
+  },
+});
+
+export const updateOrganizationMemberRole = mutation({
+  args: {
+    organizationId: v.id("organizations"),
+    memberId: v.id("users"),
+    role: organizationRoleValidator,
+  },
+  handler: async (ctx, args) => {
+    const access = await requireOrganizationManager(ctx, args.organizationId);
+    if (access.userId === args.memberId) {
+      throw new Error("Cannot change your own role this way.");
+    }
+    const membership = await getOrganizationMembership(ctx, args.organizationId, args.memberId);
+    if (!membership) {
+      throw new Error("Member not found.");
+    }
+    await ctx.db.patch(membership._id, { role: args.role });
+  },
+});
+
+export const removeOrganizationMember = mutation({
+  args: {
+    organizationId: v.id("organizations"),
+    memberId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireOrganizationManager(ctx, args.organizationId);
+    if (access.userId === args.memberId) {
+      throw new Error("Cannot remove yourself.");
+    }
+    const membership = await getOrganizationMembership(ctx, args.organizationId, args.memberId);
+    if (!membership) {
+      throw new Error("Member not found.");
+    }
+    // Delete project memberships for this user in this org
+    const projectMemberships = await ctx.db
+      .query("projectMembers")
+      .withIndex("by_user", q => q.eq("userId", args.memberId))
+      .collect();
+    for (const pm of projectMemberships) {
+      if (pm.organizationId === args.organizationId) {
+        await ctx.db.delete(pm._id);
+      }
+    }
+    await ctx.db.delete(membership._id);
   },
 });
 

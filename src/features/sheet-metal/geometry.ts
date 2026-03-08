@@ -138,49 +138,75 @@ function addHorizontalCutEdge(
     return;
   }
 
-  const path: { x: number; y: number }[] = [];
-  path.push({ x: -1e9, y: yEdge });
+  const isTopEdge = sorted[0].apexY < yEdge;
 
+  let xCrits = [startX, endX];
   for (const notch of sorted) {
     const shoulderOff = Math.abs(notch.shoulderY - notch.apexY);
-    const p1 = { x: notch.apexX - shoulderOff, y: yEdge };
-    const p2 = { x: notch.apexX - shoulderOff, y: notch.shoulderY };
-    const p3 = { x: notch.apexX, y: notch.apexY };
-    const p4 = { x: notch.apexX + shoulderOff, y: notch.shoulderY };
-    const p5 = { x: notch.apexX + shoulderOff, y: yEdge };
-
-    path.push(p1, p2, p3, p4, p5);
+    xCrits.push(notch.apexX - shoulderOff);
+    xCrits.push(notch.apexX);
+    xCrits.push(notch.apexX + shoulderOff);
   }
 
-  path.push({ x: 1e9, y: yEdge });
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      const n1 = sorted[i];
+      const n2 = sorted[j];
+      const xInt1 = (n1.apexY - n2.apexY + n1.apexX + n2.apexX) / 2;
+      const xInt2 = (n2.apexY - n1.apexY + n1.apexX + n2.apexX) / 2;
+      xCrits.push(xInt1);
+      xCrits.push(xInt2);
+    }
+  }
 
-  for (let i = 0; i < path.length - 1; i++) {
-    let pA = path[i];
-    let pB = path[i + 1];
+  xCrits = xCrits.filter(x => x >= startX - 1e-5 && x <= endX + 1e-5).sort((a, b) => a - b);
+  const uniqueXCrits: number[] = [];
+  for (const x of xCrits) {
+    if (uniqueXCrits.length === 0 || Math.abs(x - uniqueXCrits[uniqueXCrits.length - 1]) > 1e-5) {
+      uniqueXCrits.push(x);
+    }
+  }
 
-    if (Math.min(pA.x, pB.x) > endX) continue;
-    if (Math.max(pA.x, pB.x) < startX) continue;
+  function getInnerNotchY(notch: HorizontalNotch, x: number) {
+    return notch.apexY + (isTopEdge ? 1 : -1) * Math.abs(x - notch.apexX);
+  }
 
-    let x1 = pA.x, y1 = pA.y;
-    let x2 = pB.x, y2 = pB.y;
+  function getActiveNotch(xMid: number) {
+    let activeNotch: HorizontalNotch | null = null;
+    let boundY = yEdge;
+    for (const notch of sorted) {
+      const shoulderOff = Math.abs(notch.shoulderY - notch.apexY);
+      if (xMid > notch.apexX - shoulderOff && xMid < notch.apexX + shoulderOff) {
+        const ny = getInnerNotchY(notch, xMid);
+        if (isTopEdge ? ny < boundY : ny > boundY) {
+          boundY = ny;
+          activeNotch = notch;
+        }
+      }
+    }
+    return activeNotch;
+  }
 
-    if (x1 < startX) {
-      y1 = pA.y + (startX - pA.x) * (pB.y - pA.y) / (pB.x - pA.x);
-      x1 = startX;
-    } else if (x1 > endX) {
-      y1 = pA.y + (endX - pA.x) * (pB.y - pA.y) / (pB.x - pA.x);
-      x1 = endX;
+  let currentY = yEdge;
+  for (let i = 0; i < uniqueXCrits.length - 1; i++) {
+    const xA = uniqueXCrits[i];
+    const xB = uniqueXCrits[i + 1];
+    const xMid = (xA + xB) / 2;
+
+    const activeNotch = getActiveNotch(xMid);
+    const yA = activeNotch ? getInnerNotchY(activeNotch, xA) : yEdge;
+    const yB = activeNotch ? getInnerNotchY(activeNotch, xB) : yEdge;
+
+    if (Math.abs(currentY - yA) > 1e-5) {
+      addLine(shapes, "CUT", xA, currentY, xA, yA);
     }
 
-    if (x2 < startX) {
-      y2 = pA.y + (startX - pA.x) * (pB.y - pA.y) / (pB.x - pA.x);
-      x2 = startX;
-    } else if (x2 > endX) {
-      y2 = pA.y + (endX - pA.x) * (pB.y - pA.y) / (pB.x - pA.x);
-      x2 = endX;
-    }
+    addLine(shapes, "CUT", xA, yA, xB, yB);
+    currentY = yB;
+  }
 
-    addLine(shapes, "CUT", x1, y1, x2, y2);
+  if (Math.abs(currentY - yEdge) > 1e-5) {
+    addLine(shapes, "CUT", endX, currentY, endX, yEdge);
   }
 }
 
@@ -200,49 +226,75 @@ function addVerticalCutEdge(
     return;
   }
 
-  const path: { x: number; y: number }[] = [];
-  path.push({ x: xEdge, y: 1e9 });
+  const isRightEdge = sorted[0].apexX < xEdge;
 
+  let yCrits = [startY, endY];
   for (const notch of sorted) {
     const shoulderOff = Math.abs(notch.shoulderX - notch.apexX);
-    const p1 = { x: xEdge, y: notch.apexY + shoulderOff };
-    const p2 = { x: notch.shoulderX, y: notch.apexY + shoulderOff };
-    const p3 = { x: notch.apexX, y: notch.apexY };
-    const p4 = { x: notch.shoulderX, y: notch.apexY - shoulderOff };
-    const p5 = { x: xEdge, y: notch.apexY - shoulderOff };
-
-    path.push(p1, p2, p3, p4, p5);
+    yCrits.push(notch.apexY + shoulderOff);
+    yCrits.push(notch.apexY);
+    yCrits.push(notch.apexY - shoulderOff);
   }
 
-  path.push({ x: xEdge, y: -1e9 });
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      const n1 = sorted[i];
+      const n2 = sorted[j];
+      const yInt1 = (n1.apexX - n2.apexX + n1.apexY + n2.apexY) / 2;
+      const yInt2 = (n2.apexX - n1.apexX + n1.apexY + n2.apexY) / 2;
+      yCrits.push(yInt1);
+      yCrits.push(yInt2);
+    }
+  }
 
-  for (let i = 0; i < path.length - 1; i++) {
-    let pA = path[i];
-    let pB = path[i + 1];
+  yCrits = yCrits.filter(y => y <= startY + 1e-5 && y >= endY - 1e-5).sort((a, b) => b - a);
+  const uniqueYCrits: number[] = [];
+  for (const y of yCrits) {
+    if (uniqueYCrits.length === 0 || Math.abs(uniqueYCrits[uniqueYCrits.length - 1] - y) > 1e-5) {
+      uniqueYCrits.push(y);
+    }
+  }
 
-    if (Math.min(pA.y, pB.y) > startY) continue;
-    if (Math.max(pA.y, pB.y) < endY) continue;
+  function getInnerNotchX(notch: VerticalNotch, y: number) {
+    return notch.apexX + (isRightEdge ? 1 : -1) * Math.abs(y - notch.apexY);
+  }
 
-    let x1 = pA.x, y1 = pA.y;
-    let x2 = pB.x, y2 = pB.y;
+  function getActiveNotch(yMid: number) {
+    let activeNotch: VerticalNotch | null = null;
+    let boundX = xEdge;
+    for (const notch of sorted) {
+      const shoulderOff = Math.abs(notch.shoulderX - notch.apexX);
+      if (yMid < notch.apexY + shoulderOff && yMid > notch.apexY - shoulderOff) {
+        const nx = getInnerNotchX(notch, yMid);
+        if (isRightEdge ? nx < boundX : nx > boundX) {
+          boundX = nx;
+          activeNotch = notch;
+        }
+      }
+    }
+    return activeNotch;
+  }
 
-    if (y1 > startY) {
-      x1 = pA.x + (startY - pA.y) * (pB.x - pA.x) / (pB.y - pA.y);
-      y1 = startY;
-    } else if (y1 < endY) {
-      x1 = pA.x + (endY - pA.y) * (pB.x - pA.x) / (pB.y - pA.y);
-      y1 = endY;
+  let currentX = xEdge;
+  for (let i = 0; i < uniqueYCrits.length - 1; i++) {
+    const yA = uniqueYCrits[i];
+    const yB = uniqueYCrits[i + 1];
+    const yMid = (yA + yB) / 2;
+
+    const activeNotch = getActiveNotch(yMid);
+    const xA = activeNotch ? getInnerNotchX(activeNotch, yA) : xEdge;
+    const xB = activeNotch ? getInnerNotchX(activeNotch, yB) : xEdge;
+
+    if (Math.abs(currentX - xA) > 1e-5) {
+      addLine(shapes, "CUT", currentX, yA, xA, yA);
     }
 
-    if (y2 > startY) {
-      x2 = pA.x + (startY - pA.y) * (pB.x - pA.x) / (pB.y - pA.y);
-      y2 = startY;
-    } else if (y2 < endY) {
-      x2 = pA.x + (endY - pA.y) * (pB.x - pA.x) / (pB.y - pA.y);
-      y2 = endY;
-    }
+    addLine(shapes, "CUT", xA, yA, xB, yB);
+    currentX = xB;
+  }
 
-    addLine(shapes, "CUT", x1, y1, x2, y2);
+  if (Math.abs(currentX - xEdge) > 1e-5) {
+    addLine(shapes, "CUT", currentX, endY, xEdge, endY);
   }
 }
 
