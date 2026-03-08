@@ -169,6 +169,35 @@ export const listByProject = query({
   },
 });
 
+export const getDesign = query({
+  args: {
+    designId: v.id("designs"),
+  },
+  handler: async (ctx, args) => {
+    const design = await ctx.db.get(args.designId);
+    if (!design) {
+      return null;
+    }
+
+    await requireProjectAccess(ctx, design.projectId);
+
+    const updatedBy = await ctx.db.get(design.updatedBy);
+    return {
+      id: design._id,
+      name: design.name,
+      exportName: design.exportName,
+      model: normalizeSheetModel(design.model),
+      createdAt: design.createdAt,
+      updatedAt: design.updatedAt,
+      lastExportedAt: design.lastExportedAt ?? null,
+      isStarred: design.isStarred ?? false,
+      updatedByName: updatedBy?.name ?? updatedBy?.email ?? "User",
+      projectId: design.projectId,
+      organizationId: design.organizationId,
+    };
+  },
+});
+
 export const saveDesign = mutation({
   args: {
     designId: v.optional(v.id("designs")),

@@ -7,6 +7,11 @@ import { SheetMetalProvider } from "@/features/sheet-metal/context";
 import { WorkspaceProvider } from "@/features/workspace/context";
 import AuthPage from "@/routes/auth";
 import LandingPage from "@/routes/landing";
+import OrganizationPage from "@/routes/organization";
+import OrganizationDetailPage from "@/routes/organization-detail";
+import ProjectPage from "@/routes/project";
+import ProjectDetailPage from "@/routes/project-detail";
+import DesignDetailPage from "@/routes/design-detail";
 import SheetMetalApp from "@/routes/sheet-metal";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -23,6 +28,11 @@ export default function App() {
                 <Routes>
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/organization" element={<OrganizationPage />} />
+                  <Route path="/organization/:orgId" element={<OrganizationDetailPage />} />
+                  <Route path="/project" element={<ProjectPage />} />
+                  <Route path="/project/:projectId" element={<ProjectDetailPage />} />
+                  <Route path="/project/:projectId/:designId" element={<DesignDetailPage />} />
                   <Route path="/sheet-metal" element={<SheetMetalApp />} />
                   <Route path="/sheet-metal/:designId" element={<SheetMetalApp />} />
                 </Routes>

@@ -52,6 +52,16 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
+    title: "Organizations",
+    url: "/organization",
+    icon: LayoutDashboard, // Will replace with Building / Users later if needed
+  },
+  {
+    title: "Projects",
+    url: "/project",
+    icon: FileStack,
+  },
+  {
     title: "Sheet Metal",
     url: "/sheet-metal",
     icon: ScissorsLineDashed,
