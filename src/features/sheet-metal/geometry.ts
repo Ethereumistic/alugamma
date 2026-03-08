@@ -567,7 +567,7 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
       const initialSign = Math.sign(n.shoulderY - n.apexY);
 
       const originalS = Math.abs(n.shoulderY - n.apexY);
-      const newS = originalS - offset;
+      const newS = originalS - offset * (Math.SQRT2 - 1);
       if (newS <= 0) continue;
 
       const newApexY = n.apexY + dirY * dDiag;
@@ -587,7 +587,7 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
       const initialSign = Math.sign(n.shoulderX - n.apexX);
 
       const originalS = Math.abs(n.shoulderX - n.apexX);
-      const newS = originalS - offset;
+      const newS = originalS - offset * (Math.SQRT2 - 1);
       if (newS <= 0) continue;
 
       const newApexX = n.apexX + dirX * dDiag;
