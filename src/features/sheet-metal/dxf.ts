@@ -42,10 +42,10 @@ export function buildDxf(geometry: GeometryResult, designName: string, modelConf
   const cy = (geometry.baseRect.y0 + geometry.baseRect.y1) / 2;
 
   // The arrow will be positioned slightly to the right of center
-  const arrowCx = cx + 80;
+  const arrowCx = cx + 420;
 
   if (modelConfig.includeArrow) {
-    const arrowLines = getArrowPaths(modelConfig.arrowDirection, arrowCx, cy, 50);
+    const arrowLines = getArrowPaths(modelConfig.arrowDirection, arrowCx, cy, 100);
     arrowLines.forEach((line, i) => {
       line.layer = "0";
       model.paths![`arrow_${i}`] = line;
@@ -62,7 +62,7 @@ export function buildDxf(geometry: GeometryResult, designName: string, modelConf
   });
 
   if (modelConfig.includeName && designName.trim()) {
-    const textHeight = 15;
+    const textHeight = 64;
     const estimatedWidth = designName.length * textHeight * 0.7;
     // position text to the left/center, leaving room for arrow on the right
     const textX = modelConfig.includeArrow ? cx - 40 - estimatedWidth / 2 : cx - estimatedWidth / 2;
