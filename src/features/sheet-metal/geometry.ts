@@ -513,8 +513,14 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
     for (const n of notches) {
       if (n.shoulderY === n.apexY) continue;
       const initialSign = Math.sign(n.shoulderY - n.apexY);
+
+      const originalS = Math.abs(n.shoulderY - n.apexY);
+      const newS = originalS - offset;
+      if (newS <= 0) continue;
+
       const newApexY = n.apexY + dirY * dDiag;
-      const newShoulderY = n.shoulderY + dirY * offset;
+      const newShoulderY = newApexY + dirY * newS;
+
       if (Math.sign(newShoulderY - newApexY) !== initialSign) continue;
       finalNotches.push({ apexX: n.apexX, apexY: newApexY, shoulderY: newShoulderY });
     }
@@ -527,8 +533,14 @@ function _computeSheetMetalGeometry(model: SheetMetalModel): GeometryResult {
     for (const n of notches) {
       if (n.shoulderX === n.apexX) continue;
       const initialSign = Math.sign(n.shoulderX - n.apexX);
+
+      const originalS = Math.abs(n.shoulderX - n.apexX);
+      const newS = originalS - offset;
+      if (newS <= 0) continue;
+
       const newApexX = n.apexX + dirX * dDiag;
-      const newShoulderX = n.shoulderX + dirX * offset;
+      const newShoulderX = newApexX + dirX * newS;
+
       if (Math.sign(newShoulderX - newApexX) !== initialSign) continue;
       finalNotches.push({ apexX: newApexX, apexY: n.apexY, shoulderX: newShoulderX });
     }
