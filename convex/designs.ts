@@ -158,8 +158,10 @@ export const listByProject = query({
             name: design.name,
             exportName: design.exportName,
             model: normalizeSheetModel(design.model),
+            createdAt: design.createdAt,
             updatedAt: design.updatedAt,
             lastExportedAt: design.lastExportedAt ?? null,
+            isStarred: design.isStarred ?? false,
             updatedByName: updatedBy?.name ?? updatedBy?.email ?? "User",
           };
         }),
@@ -227,5 +229,81 @@ export const saveDesign = mutation({
     });
 
     return { designId };
+  },
+});
+
+export const deleteDesign = mutation({
+  args: {
+    designId: v.id("designs"),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.designId);
+    if (!existing) throw new Error("Saved design not found.");
+    await requireProjectManager(ctx, existing.projectId);
+    await ctx.db.delete(args.designId);
+  },
+});
+
+export const renameDesign = mutation({
+  args: {
+    designId: v.id("designs"),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.designId);
+    if (!existing) throw new Error("Saved design not found.");
+    const access = await requireProjectManager(ctx, existing.projectId);
+
+    const name = args.name.trim();
+    if (name.length < 2) throw new Error("Design name must be at least 2 characters.");
+
+    await ctx.db.patch(args.designId, {
+      name,
+      updatedBy: access.userId,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const duplicateDesign = mutation({
+  args: {
+    designId: v.id("designs"),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.designId);
+    if (!existing) throw new Error("Saved design not found.");
+    const access = await requireProjectManager(ctx, existing.projectId);
+
+    const now = Date.now();
+    const newDesignId = await ctx.db.insert("designs", {
+      organizationId: access.project.organizationId,
+      projectId: existing.projectId,
+      name: `${existing.name} (Copy)`,
+      exportName: existing.exportName,
+      model: existing.model,
+      createdBy: access.userId,
+      updatedBy: access.userId,
+      createdAt: now,
+      updatedAt: now,
+      isStarred: existing.isStarred,
+    });
+
+    return newDesignId;
+  },
+});
+
+export const toggleStarDesign = mutation({
+  args: {
+    designId: v.id("designs"),
+    isStarred: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.designId);
+    if (!existing) throw new Error("Saved design not found.");
+    await requireProjectManager(ctx, existing.projectId);
+
+    await ctx.db.patch(args.designId, {
+      isStarred: args.isStarred,
+    });
   },
 });

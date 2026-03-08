@@ -8,6 +8,7 @@ import { WorkspaceProvider } from "@/features/workspace/context";
 import AuthPage from "@/routes/auth";
 import LandingPage from "@/routes/landing";
 import SheetMetalApp from "@/routes/sheet-metal";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
               </main>
             </div>
           </div>
+          <Toaster theme="dark" position="bottom-left" richColors />
         </SheetMetalProvider>
       </WorkspaceProvider>
     </UI_SidebarProvider>

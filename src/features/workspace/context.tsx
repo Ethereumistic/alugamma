@@ -27,6 +27,8 @@ export type ProjectDesignSummary = {
   name: string;
   exportName: string;
   updatedAt: number;
+  createdAt: number;
+  isStarred?: boolean;
 };
 
 export type ProjectSummary = {

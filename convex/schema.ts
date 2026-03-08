@@ -74,6 +74,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     lastExportedAt: v.optional(v.number()),
+    isStarred: v.optional(v.boolean()),
   })
     .index("by_project", ["projectId"])
     .index("by_project_updatedAt", ["projectId", "updatedAt"]),

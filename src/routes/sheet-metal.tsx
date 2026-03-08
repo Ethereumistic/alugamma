@@ -46,7 +46,6 @@ export default function SheetMetalApp() {
     geometry,
     selectedDesignId,
     savedDesigns,
-    status,
     addFlange,
     addFrez,
     updateFlange,
@@ -177,18 +176,6 @@ export default function SheetMetalApp() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 py-6 lg:px-8">
-      {status && (
-        <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${status.tone === "error"
-            ? "border-destructive/30 bg-destructive/10 text-destructive"
-            : status.tone === "success"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"
-              : "border-white/10 bg-black/20 text-slate-200"
-            }`}
-        >
-          {status.message}
-        </div>
-      )}
 
       <div className="grid items-start gap-6 xl:grid-cols-[400px,minmax(0,1fr)]">
         <aside className="flex flex-col gap-6">

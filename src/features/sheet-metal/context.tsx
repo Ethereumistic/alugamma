@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { useMutation, useQuery } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
@@ -35,8 +36,10 @@ type SavedDesignSummary = {
   name: string;
   exportName: string;
   model: SheetMetalModel;
+  createdAt: number;
   updatedAt: number;
   lastExportedAt: number | null;
+  isStarred: boolean;
   updatedByName: string;
 };
 
@@ -53,7 +56,6 @@ type SheetMetalContextType = {
   selectedDesignId: Id<"designs"> | null;
   savedDesigns: SavedDesignSummary[];
   isSaving: boolean;
-  status: SheetMetalStatus | null;
   setBaseValue: (key: "baseWidth" | "baseHeight", value: number) => void;
   setOffsetCut: (value: number) => void;
   setIncludeName: (value: boolean) => void;
@@ -75,7 +77,6 @@ type SheetMetalContextType = {
   loadSavedDesign: (designId: Id<"designs">) => void;
   saveDesign: (options?: { markExported?: boolean }) => Promise<Id<"designs"> | null>;
   exportDxf: () => Promise<Id<"designs"> | null>;
-  clearStatus: () => void;
 };
 
 const SheetMetalContext = createContext<SheetMetalContextType | null>(null);
@@ -113,7 +114,6 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
   const [selectedDesignId, setSelectedDesignId] = useState<Id<"designs"> | null>(null);
   const [isNewDesign, setIsNewDesign] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [status, setStatus] = useState<SheetMetalStatus | null>(null);
   const saveDesignMutation = useMutation(api.designs.saveDesign);
   const rawSavedDesigns =
     (useQuery(api.designs.listByProject, selectedProjectId ? { projectId: selectedProjectId } : "skip") as
@@ -131,7 +131,6 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     setDesignName(nextDraft.designName);
     setSelectedDesignId(null);
     setIsNewDesign(true);
-    setStatus(null);
   }, [selectedProjectId]);
 
   function setBaseValue(key: "baseWidth" | "baseHeight", value: number) {
@@ -269,7 +268,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     setModel(draft.model);
     setDesignName(draft.designName);
     setSelectedDesignId(null);
-    setStatus({ tone: "info", message: `Loaded preset \"${draft.designName}\".` });
+    toast.info(`Loaded preset "${draft.designName}".`);
   }
 
   function startNewDesign() {
@@ -278,14 +277,14 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     setDesignName(draft.designName);
     setSelectedDesignId(null);
     setIsNewDesign(true);
-    setStatus({ tone: "info", message: "Started a new blank design draft." });
+    toast.info("Started a new blank design draft.");
   }
 
   function loadSavedDesign(designId: Id<"designs">) {
     const design = savedDesigns.find((item) => item.id === designId);
 
     if (!design) {
-      setStatus({ tone: "error", message: "Saved design not found in the selected project." });
+      toast.error("Saved design not found in the selected project.");
       return;
     }
 
@@ -293,29 +292,26 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     setDesignName(design.name);
     setSelectedDesignId(design.id);
     setIsNewDesign(false);
-    setStatus({ tone: "success", message: `Loaded "${design.name}".` });
+    toast.success(`Loaded "${design.name}".`);
   }
 
   async function saveDesign(options?: { markExported?: boolean }) {
     if (!selectedProjectId) {
-      setStatus({ tone: "error", message: "Select a project before saving or exporting." });
+      toast.error("Select a project before saving or exporting.");
       return null;
     }
 
     const trimmedDesignName = designName.trim();
 
     if (trimmedDesignName.length < 2) {
-      setStatus({ tone: "error", message: "Design name must be at least 2 characters." });
+      toast.error("Design name must be at least 2 characters.");
       return null;
     }
 
     const normalizedModel = normalizeSheetMetalModel(model);
 
     setIsSaving(true);
-    setStatus({
-      tone: "info",
-      message: options?.markExported ? "Saving design and recording export..." : "Saving design...",
-    });
+    const loadingToastId = toast.loading(options?.markExported ? "Saving design and recording export..." : "Saving design...");
 
     try {
       const result = await saveDesignMutation({
@@ -329,17 +325,11 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
 
       setModel(normalizedModel);
       setSelectedDesignId(result.designId);
-      setStatus({
-        tone: "success",
-        message: options?.markExported ? "Design saved and export registered." : "Design saved.",
-      });
+      toast.success(options?.markExported ? "Design saved and export registered." : "Design saved.", { id: loadingToastId });
 
       return result.designId;
     } catch (error) {
-      setStatus({
-        tone: "error",
-        message: error instanceof Error ? error.message : "Unable to save the current design.",
-      });
+      toast.error(error instanceof Error ? error.message : "Unable to save the current design.", { id: loadingToastId });
       return null;
     } finally {
       setIsSaving(false);
@@ -374,7 +364,6 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
         selectedDesignId,
         savedDesigns,
         isSaving,
-        status,
         setBaseValue,
         setOffsetCut,
         setIncludeName,
@@ -396,7 +385,6 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
         loadSavedDesign,
         saveDesign,
         exportDxf,
-        clearStatus: () => setStatus(null),
       }}
     >
       {children}

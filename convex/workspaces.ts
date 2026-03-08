@@ -178,6 +178,8 @@ export const viewerWorkspace = query({
                 name: design.name,
                 exportName: design.exportName,
                 updatedAt: design.updatedAt,
+                createdAt: design.createdAt,
+                isStarred: design.isStarred,
               })),
           };
         }),
@@ -185,9 +187,9 @@ export const viewerWorkspace = query({
 
     const pendingInvites = viewer.email
       ? await ctx.db
-          .query("projectInvites")
-          .withIndex("by_email_status", (query) => query.eq("email", viewer.email).eq("status", "pending"))
-          .collect()
+        .query("projectInvites")
+        .withIndex("by_email_status", (query) => query.eq("email", viewer.email).eq("status", "pending"))
+        .collect()
       : [];
 
     const inviteCards = await Promise.all(
