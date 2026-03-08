@@ -40,6 +40,7 @@ const allSideKeys: SideKey[] = ["top", "right", "bottom", "left"];
 
 export default function SheetMetalApp() {
   const { designId } = useParams<{ designId?: string }>();
+  const isNewDesign = !designId || designId === "new";
   const {
     model,
     geometry,
@@ -58,6 +59,7 @@ export default function SheetMetalApp() {
     setIncludeName,
     setIncludeArrow,
     setArrowDirection,
+    startNewDesign,
     loadSavedDesign,
   } = useSheetMetal();
   const {
@@ -73,7 +75,7 @@ export default function SheetMetalApp() {
   const routedProject = designId ? projects.find((project) => project.designs.some((design) => design.id === designId)) ?? null : null;
 
   useEffect(() => {
-    if (!designId || !routedProject) {
+    if (!designId || designId === "new" || !routedProject) {
       return;
     }
 
@@ -84,7 +86,14 @@ export default function SheetMetalApp() {
   }, [designId, routedProject, selectedProjectId, setSelectedOrganizationId, setSelectedProjectId]);
 
   useEffect(() => {
-    if (!designId || !routedProject || selectedProjectId !== routedProject.id) {
+    if (isNewDesign) {
+      if (selectedDesignId !== null) {
+        startNewDesign();
+      }
+      return;
+    }
+
+    if (!routedProject || selectedProjectId !== routedProject.id) {
       return;
     }
 
@@ -95,7 +104,7 @@ export default function SheetMetalApp() {
     if (savedDesigns.some((design) => design.id === designId)) {
       loadSavedDesign(designId as Id<"designs">);
     }
-  }, [designId, loadSavedDesign, routedProject, savedDesigns, selectedDesignId, selectedProjectId]);
+  }, [designId, isNewDesign, loadSavedDesign, routedProject, savedDesigns, selectedDesignId, selectedProjectId, startNewDesign]);
 
   if (isLoadingWorkspace) {
     return (
@@ -130,7 +139,7 @@ export default function SheetMetalApp() {
     );
   }
 
-  if (designId && !routedProject) {
+  if (designId && designId !== "new" && !routedProject) {
     return (
       <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-4 py-10 lg:px-8">
         <Card className="border-white/10 bg-card/85">

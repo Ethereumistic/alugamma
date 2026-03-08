@@ -111,6 +111,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
   const [model, setModel] = useState<SheetMetalModel>(() => defaultDraft.model);
   const [designName, setDesignName] = useState(defaultDraft.designName);
   const [selectedDesignId, setSelectedDesignId] = useState<Id<"designs"> | null>(null);
+  const [isNewDesign, setIsNewDesign] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<SheetMetalStatus | null>(null);
   const saveDesignMutation = useMutation(api.designs.saveDesign);
@@ -129,6 +130,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     setModel(nextDraft.model);
     setDesignName(nextDraft.designName);
     setSelectedDesignId(null);
+    setIsNewDesign(true);
     setStatus(null);
   }, [selectedProjectId]);
 
@@ -275,6 +277,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     setModel(draft.model);
     setDesignName(draft.designName);
     setSelectedDesignId(null);
+    setIsNewDesign(true);
     setStatus({ tone: "info", message: "Started a new blank design draft." });
   }
 
@@ -289,7 +292,8 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     setModel(cloneModel(design.model));
     setDesignName(design.name);
     setSelectedDesignId(design.id);
-    setStatus({ tone: "success", message: `Loaded \"${design.name}\".` });
+    setIsNewDesign(false);
+    setStatus({ tone: "success", message: `Loaded "${design.name}".` });
   }
 
   async function saveDesign(options?: { markExported?: boolean }) {

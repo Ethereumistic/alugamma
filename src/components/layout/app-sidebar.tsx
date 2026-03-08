@@ -1,6 +1,6 @@
-import { ChevronDown, ChevronRight, FileStack, FolderKanban, LayoutDashboard, LogOut, Plus, ScissorsLineDashed, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { ChevronDown, FileStack, LayoutDashboard, LogOut, Plus, ScissorsLineDashed, UserRound } from "lucide-react";
+import { useMemo } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
 
 import {
@@ -19,8 +19,17 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useSheetMetal } from "@/features/sheet-metal/context";
 import { useWorkspace } from "@/features/workspace/context";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const navItems = [
   {
@@ -37,29 +46,39 @@ const navItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { signOut } = useAuthActions();
-  const { viewer, authenticated, projects, selectedProjectId, setSelectedOrganizationId, setSelectedProjectId } = useWorkspace();
+  const { viewer, authenticated, organizations, projects, selectedOrganizationId, selectedProjectId, setSelectedOrganizationId, setSelectedProjectId, selectedOrganization, selectedProject } = useWorkspace();
   const { startNewDesign } = useSheetMetal();
-  const [projectsExpanded, setProjectsExpanded] = useState(true);
-  const [openProjects, setOpenProjects] = useState<Record<string, boolean>>({});
 
   const pathIsSheetMetal = location.pathname.startsWith("/sheet-metal");
 
-  useEffect(() => {
-    if (!selectedProjectId) {
-      return;
+  const organizationProjects = useMemo(() => {
+    if (!selectedOrganizationId) return [];
+    return projects.filter((project) => project.organizationId === selectedOrganizationId);
+  }, [projects, selectedOrganizationId]);
+
+  function handleOrganizationChange(orgId: string) {
+    setSelectedOrganizationId(orgId as any);
+    const orgProjects = projects.filter((p) => p.organizationId === orgId);
+    if (orgProjects.length > 0) {
+      setSelectedProjectId(orgProjects[0].id);
+    } else {
+      setSelectedProjectId(null);
     }
+  }
 
-    setOpenProjects((current) => ({ ...current, [selectedProjectId]: true }));
-  }, [selectedProjectId]);
-
-  function toggleProject(projectId: string) {
-    setOpenProjects((current) => ({ ...current, [projectId]: !current[projectId] }));
+  function handleProjectChange(projectId: string) {
+    const project = projects.find((p) => p.id === projectId);
+    if (project) {
+      setSelectedOrganizationId(project.organizationId);
+      setSelectedProjectId(projectId as any);
+    }
   }
 
   return (
     <Sidebar className="border-r border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(9,13,22,0.98))]">
-      <SidebarHeader className="border-b border-white/5 px-6 py-5">
+      <SidebarHeader className="border-b border-white/5 px-4 py-4">
         <Link to="/" className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-primary shadow-[0_0_18px_rgba(20,180,100,0.14)]">
             <ScissorsLineDashed className="h-5 w-5" />
@@ -69,6 +88,61 @@ export function AppSidebar() {
             <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">DXF Workspace</p>
           </div>
         </Link>
+
+        {authenticated && organizations.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-between border-white/10 bg-white/[0.02] text-left hover:bg-white/5"
+                >
+                  <span className="truncate">{selectedOrganization?.name || "Select Organization"}</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width]">
+                <DropdownMenuLabel>Organizations</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {organizations.map((org) => (
+                  <DropdownMenuItem
+                    key={org.id}
+                    onClick={() => handleOrganizationChange(org.id)}
+                    className={org.id === selectedOrganizationId ? "bg-primary/10 text-primary" : ""}
+                  >
+                    <span className="truncate">{org.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-between border-white/10 bg-white/[0.02] text-left hover:bg-white/5"
+                  disabled={!selectedOrganizationId || organizationProjects.length === 0}
+                >
+                  <span className="truncate">{selectedProject?.name || "Select Project"}</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width]">
+                <DropdownMenuLabel>Projects</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {organizationProjects.map((project) => (
+                  <DropdownMenuItem
+                    key={project.id}
+                    onClick={() => handleProjectChange(project.id)}
+                    className={project.id === selectedProjectId ? "bg-primary/10 text-primary" : ""}
+                  >
+                    <span className="truncate">{project.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent className="overflow-hidden">
@@ -103,100 +177,53 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {authenticated && (
+        {authenticated && selectedProject && (
           <SidebarGroup className="min-h-0 flex-1 overflow-hidden">
             <SidebarGroupLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Saved Designs
+              Designs in {selectedProject.name}
             </SidebarGroupLabel>
-            <SidebarGroupContent className="min-h-0 overflow-hidden">
-              <div className="rounded-2xl border border-white/6 bg-white/[0.02] p-2">
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-medium text-white transition-colors hover:bg-white/5"
-                  onClick={() => setProjectsExpanded((current) => !current)}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <FolderKanban className="h-4 w-4 text-emerald-300" />
-                    Projects
-                  </span>
-                  {projectsExpanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
-                </button>
+            <SidebarGroupContent className="min-h-0">
+              <ScrollArea className="h-[calc(100vh-380px)]">
+                <SidebarMenuSub className="space-y-1 pr-3">
+                  <SidebarMenuSubButton
+                    asChild
+                    isActive={location.pathname === "/sheet-metal" || location.pathname === "/sheet-metal/new"}
+                    className="mb-2 text-slate-300 hover:text-white"
+                  >
+                    <Link
+                      to="/sheet-metal/new"
+                      onClick={() => {
+                        if (location.pathname === "/sheet-metal" || location.pathname === "/sheet-metal/new") {
+                          startNewDesign();
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>New draft</span>
+                    </Link>
+                  </SidebarMenuSubButton>
 
-                {projectsExpanded && (
-                  <SidebarMenuSub className="mt-2 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
-                    {projects.map((project) => {
-                      const isOpen = openProjects[project.id] ?? project.id === selectedProjectId;
-                      return (
-                        <SidebarMenuSubItem key={project.id} className="rounded-xl border border-transparent bg-black/10 px-1 py-1">
-                          <div>
-                            <button
-                              type="button"
-                              onClick={() => toggleProject(project.id)}
-                              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                                project.id === selectedProjectId ? "bg-primary/12 text-white" : "text-slate-300 hover:bg-white/5"
-                              }`}
-                            >
-                              <span className="min-w-0">
-                                <span className="block truncate font-medium">{project.name}</span>
-                                <span className="block truncate text-[11px] uppercase tracking-[0.22em] text-slate-500">{project.designs.length} designs</span>
-                              </span>
-                              {isOpen ? <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" /> : <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />}
-                            </button>
-
-                            {isOpen && (
-                              <div className="ml-3 mt-2 border-l border-white/8 pl-3">
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={location.pathname === "/sheet-metal" && project.id === selectedProjectId}
-                                  className="mb-1 text-slate-300 hover:text-white"
-                                >
-                                  <Link
-                                    to="/sheet-metal"
-                                    onClick={() => {
-                                      setSelectedOrganizationId(project.organizationId);
-                                      setSelectedProjectId(project.id);
-                                      startNewDesign();
-                                    }}
-                                  >
-                                    <Plus className="h-3.5 w-3.5" />
-                                    <span>New draft</span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-
-                                {project.designs.length === 0 ? (
-                                  <div className="rounded-lg border border-dashed border-white/8 px-3 py-2 text-xs text-slate-500">
-                                    No saved designs yet.
-                                  </div>
-                                ) : (
-                                  project.designs.map((design) => (
-                                    <SidebarMenuSubButton
-                                      key={design.id}
-                                      asChild
-                                      isActive={location.pathname === `/sheet-metal/${design.id}`}
-                                      className="text-slate-300 hover:text-white"
-                                    >
-                                      <Link
-                                        to={`/sheet-metal/${design.id}`}
-                                        onClick={() => {
-                                          setSelectedOrganizationId(project.organizationId);
-                                          setSelectedProjectId(project.id);
-                                        }}
-                                      >
-                                        <FileStack className="h-3.5 w-3.5" />
-                                        <span className="truncate">{design.name}</span>
-                                      </Link>
-                                    </SidebarMenuSubButton>
-                                  ))
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </SidebarMenuSubItem>
-                      );
-                    })}
-                  </SidebarMenuSub>
-                )}
-              </div>
+                  {selectedProject.designs.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-white/8 px-3 py-4 text-center text-xs text-slate-500">
+                      No saved designs yet.
+                    </div>
+                  ) : (
+                    selectedProject.designs.map((design) => (
+                      <SidebarMenuSubButton
+                        key={design.id}
+                        asChild
+                        isActive={location.pathname === `/sheet-metal/${design.id}`}
+                        className="text-slate-300 hover:text-white"
+                      >
+                        <Link to={`/sheet-metal/${design.id}`}>
+                          <FileStack className="h-4 w-4" />
+                          <span className="truncate">{design.name}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    ))
+                  )}
+                </SidebarMenuSub>
+              </ScrollArea>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
