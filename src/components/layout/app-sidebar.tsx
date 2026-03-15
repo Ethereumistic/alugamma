@@ -44,6 +44,7 @@ import {
 import { useSheetMetal } from "@/features/sheet-metal/context";
 import { useWorkspace, type ProjectDesignSummary } from "@/features/workspace/context";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
 const navItems = [
   {
@@ -105,45 +106,6 @@ export function AppSidebar() {
 
   const pathIsSheetMetal = location.pathname.startsWith("/sheet-metal");
 
-  const organizationProjects = useMemo(() => {
-    if (!selectedOrganizationId) return [];
-    return projects.filter((project) => project.organizationId === selectedOrganizationId);
-  }, [projects, selectedOrganizationId]);
-
-  async function handleOrganizationChange(orgId: string) {
-    if (pathIsSheetMetal) {
-      await saveDesign();
-    }
-
-    setSelectedOrganizationId(orgId as any);
-    const orgProjects = projects.filter((p) => p.organizationId === orgId);
-    if (orgProjects.length > 0) {
-      setSelectedProjectId(orgProjects[0].id);
-    } else {
-      setSelectedProjectId(null);
-    }
-
-    if (pathIsSheetMetal) {
-      navigate("/sheet-metal/new");
-    }
-  }
-
-  async function handleProjectChange(projectId: string) {
-    if (pathIsSheetMetal) {
-      await saveDesign();
-    }
-
-    const project = projects.find((p) => p.id === projectId);
-    if (project) {
-      setSelectedOrganizationId(project.organizationId);
-      setSelectedProjectId(projectId as any);
-    }
-
-    if (pathIsSheetMetal) {
-      navigate("/sheet-metal/new");
-    }
-  }
-
   const groupedDesigns = useMemo(() => {
     if (!selectedProject) return new Map<string, ProjectDesignSummary[]>();
 
@@ -187,58 +149,9 @@ export function AppSidebar() {
             </div>
           </Link>
 
-          {authenticated && organizations.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between border-white/10 bg-white/[0.02] text-left hover:bg-white/5"
-                  >
-                    <span className="truncate">{selectedOrganization?.name || "Select Organization"}</span>
-                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width]">
-                  <DropdownMenuLabel>Organizations</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {organizations.map((org) => (
-                    <DropdownMenuItem
-                      key={org.id}
-                      onClick={() => handleOrganizationChange(org.id)}
-                      className={org.id === selectedOrganizationId ? "bg-primary/10 text-primary" : ""}
-                    >
-                      <span className="truncate">{org.name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between border-white/10 bg-white/[0.02] text-left hover:bg-white/5"
-                    disabled={!selectedOrganizationId || organizationProjects.length === 0}
-                  >
-                    <span className="truncate">{selectedProject?.name || "Select Project"}</span>
-                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-[--radix-dropdown-menu-trigger-width]">
-                  <DropdownMenuLabel>Projects</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {organizationProjects.map((project) => (
-                    <DropdownMenuItem
-                      key={project.id}
-                      onClick={() => handleProjectChange(project.id)}
-                      className={project.id === selectedProjectId ? "bg-primary/10 text-primary" : ""}
-                    >
-                      <span className="truncate">{project.name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+          {authenticated && (
+            <div className="mt-4">
+              <WorkspaceSwitcher />
             </div>
           )}
         </SidebarHeader>
