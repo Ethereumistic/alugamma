@@ -4,9 +4,8 @@ import { Link, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useSheetMetal } from "@/features/sheet-metal/context";
-import { countShapes, getSideTotal } from "@/features/sheet-metal/geometry";
+import { countShapes } from "@/features/sheet-metal/geometry";
 import { PreviewCanvas } from "@/features/sheet-metal/preview-canvas";
 import { SideEditor } from "@/features/sheet-metal/side-editor";
 import { type CornerKey, type CornerReliefAxis, type SideKey } from "@/features/sheet-metal/types";
@@ -14,10 +13,10 @@ import { useWorkspace } from "@/features/workspace/context";
 import type { Id } from "../../convex/_generated/dataModel";
 
 const sideMeta: Record<SideKey, { label: string; accentClass: string }> = {
-  top: { label: "Top side", accentClass: "text-sky-400" },
-  right: { label: "Right side", accentClass: "text-amber-400" },
-  bottom: { label: "Bottom side", accentClass: "text-emerald-400" },
-  left: { label: "Left side", accentClass: "text-violet-400" },
+  top: { label: "T", accentClass: "text-sky-400" },
+  right: { label: "R", accentClass: "text-amber-400" },
+  bottom: { label: "B", accentClass: "text-emerald-400" },
+  left: { label: "L", accentClass: "text-violet-400" },
 };
 
 const sideCornerMap: Record<SideKey, { start: CornerKey; end: CornerKey }> = {
@@ -37,6 +36,54 @@ const sideCornerAxis: Record<SideKey, CornerReliefAxis> = {
 const sideKeysTopBottom: SideKey[] = ["top", "bottom"];
 const sideKeysLeftRight: SideKey[] = ["left", "right"];
 const allSideKeys: SideKey[] = ["top", "right", "bottom", "left"];
+
+function SideEditorForSide({ side }: { side: SideKey }) {
+  const {
+    model,
+    geometry,
+    addFlange,
+    addFrez,
+    updateFlange,
+    updateFrez,
+    removeFlange,
+    removeFrez,
+    setFrezMode,
+    setFrezNotch,
+    setFlangeRelief,
+  } = useSheetMetal();
+
+  const handleClearAll = () => {
+    // Remove frez lines first (reverse to keep indices stable)
+    for (let i = model.sides[side].frezLines.length - 1; i >= 0; i--) {
+      removeFrez(side, i);
+    }
+    // Then remove flanges
+    for (let i = model.sides[side].flanges.length - 1; i >= 0; i--) {
+      removeFlange(side, i);
+    }
+  };
+
+  return (
+    <SideEditor
+      side={side}
+      label={sideMeta[side].label}
+      accentClass={sideMeta[side].accentClass}
+      config={model.sides[side]}
+      inwardLimit={side === "left" || side === "right" ? model.baseWidth : model.baseHeight}
+      outwardLimit={geometry.flangeDepths[side]}
+      onAddFlange={() => addFlange(side)}
+      onAddFrez={() => addFrez(side)}
+      onChangeFlange={(index, value) => updateFlange(side, index, value)}
+      onChangeFrez={(index, value) => updateFrez(side, index, value)}
+      onRemoveFlange={(index) => removeFlange(side, index)}
+      onRemoveFrez={(index) => removeFrez(side, index)}
+      onSetFrezMode={(mode) => setFrezMode(side, mode)}
+      onSetFrezNotch={(index, position, value) => setFrezNotch(side, index, position, value)}
+      onSetFlangeRelief={(index, position, value) => setFlangeRelief(side, index, position, value)}
+      onClearAll={handleClearAll}
+    />
+  );
+}
 
 export default function SheetMetalApp() {
   const { designId } = useParams<{ designId?: string }>();
@@ -175,145 +222,71 @@ export default function SheetMetalApp() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 py-6 lg:px-8">
+    <div className="spatial-workspace flex h-[calc(100vh-4rem)] w-full flex-col overflow-hidden">
+      {/* ═══════════════════════════════════════════════════════════════
+          SPATIAL GRID LAYOUT
+          The preview is the center of the universe.
+          Side panels are positioned around it mirroring physical sides.
 
-      <div className="grid items-start gap-6 xl:grid-cols-[400px,minmax(0,1fr)]">
-        <aside className="flex flex-col gap-6">
-          {sideKeysTopBottom.map((side) => {
-            const axis = sideCornerAxis[side];
-            return (
-              <SideEditor
-                key={side}
-                side={side}
-                label={sideMeta[side].label}
-                accentClass={sideMeta[side].accentClass}
-                config={model.sides[side]}
-                inwardLimit={side === "left" || side === "right" ? model.baseWidth : model.baseHeight}
-                outwardLimit={geometry.flangeDepths[side]}
-                onAddFlange={() => addFlange(side)}
-                onAddFrez={() => addFrez(side)}
-                onChangeFlange={(index, value) => updateFlange(side, index, value)}
-                onChangeFrez={(index, value) => updateFrez(side, index, value)}
-                onRemoveFlange={(index) => removeFlange(side, index)}
-                onRemoveFrez={(index) => removeFrez(side, index)}
-                onSetFrezMode={(mode) => setFrezMode(side, mode)}
-                onSetFrezNotch={(index, position, value) => setFrezNotch(side, index, position, value)}
-                onSetFlangeRelief={(index, position, value) => setFlangeRelief(side, index, position, value)}
-              />
-            );
-          })}
-          <Card className="border-white/10 bg-card/80">
-            <CardHeader className="border-b border-white/5 bg-white/[0.02] pb-3">
-              <CardTitle>Export Options & Totals</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">DXF Export</p>
+              [        TOP PANEL          ]
+          [LEFT]  [   LIVE PREVIEW   ]  [RIGHT]
+              [       BOTTOM PANEL        ]
+         ═══════════════════════════════════════════════════════════════ */}
 
-                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/5 bg-black/20 p-3 transition-colors hover:bg-white/[0.02]">
-                  <span className="text-sm text-foreground">Include sheet name</span>
-                  <Checkbox
-                    checked={model.includeName}
-                    onCheckedChange={(checked) => setIncludeName(checked === true)}
-                    className="h-4 w-4 border-white/20 data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
-                  />
-                </label>
+      <div className="grid flex-1 grid-cols-[auto,1fr,auto] grid-rows-[auto,1fr,auto] gap-0 overflow-hidden p-2">
 
-                <div className="space-y-2 rounded-lg border border-white/5 bg-black/20 p-3">
-                  <label className="flex cursor-pointer items-center justify-between gap-3">
-                    <span className="text-sm text-foreground">Include directional arrow</span>
-                    <Checkbox
-                      checked={model.includeArrow}
-                      onCheckedChange={(checked) => setIncludeArrow(checked === true)}
-                      className="h-4 w-4 border-white/20 data-[state=checked]:border-blue-500 data-[state=checked]:bg-blue-500"
-                    />
-                  </label>
+        {/* ── TOP SIDE PANEL ── */}
+        <div className="col-start-2 row-start-1 px-0 pb-1.5">
+          <SideEditorForSide side="top" />
+        </div>
 
-                  {model.includeArrow && (
-                    <div className="mt-3 flex gap-2">
-                      {allSideKeys.map((dir) => (
-                        <Button
-                          key={dir}
-                          variant={model.arrowDirection === dir ? "default" : "secondary"}
-                          size="sm"
-                          className={`flex-1 capitalize ${model.arrowDirection === dir ? "bg-blue-600 hover:bg-blue-500 text-white" : ""}`}
-                          onClick={() => setArrowDirection(dir)}
-                        >
-                          {dir}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+        {/* ── LEFT SIDE PANEL ── */}
+        <div className="col-start-1 row-start-2 h-full pr-1.5">
+          <SideEditorForSide side="left" />
+        </div>
 
-
-            </CardContent>
-          </Card>
-        </aside>
-
-        <main className="flex flex-col gap-6">
-          <div className="sticky top-6 z-20">
-            <Card className="overflow-hidden border-white/10 bg-card/80 shadow-2xl backdrop-blur-xl">
-              <CardHeader className="flex flex-col gap-4 border-b border-white/6 bg-white/[0.02] px-5 pb-4 pt-5 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <CardTitle>Live Preview</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">{selectedProject.name} production geometry</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="cut">CUT ({countShapes(geometry.shapes, "CUT")})</Badge>
-                  <Badge variant="frez">FREZ ({countShapes(geometry.shapes, "FREZ")})</Badge>
-                  <Badge variant="outline">{geometry.totalWidth} x {geometry.totalHeight} mm</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="panel-grid relative overflow-hidden rounded-[1.25rem] border border-white/8 bg-[#090d16] p-2">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_34%)]" />
-                  <div className="relative h-[480px] w-full">
-                    <PreviewCanvas geometry={geometry} />
-                  </div>
-                </div>
-
-                {geometry.warnings.length > 0 && (
-                  <div className="relative mt-4 overflow-hidden rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive-foreground">
-                    <strong className="mb-1 block font-semibold">Geometry warnings</strong>
-                    <ul className="list-inside list-disc opacity-90">
-                      {geometry.warnings.map((warning) => (
-                        <li key={warning}>{warning}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+        {/* ── LIVE PREVIEW (CENTER) ── */}
+        <div className="col-start-2 row-start-2 flex flex-col items-stretch overflow-hidden rounded-2xl border border-white/[0.06] bg-[#080c14]">
+          {/* Mini info bar */}
+          <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-1.5">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/50">
+              {selectedProject.name}
+            </p>
+            <div className="flex gap-2">
+              <Badge variant="cut" className="h-5 text-[10px]">CUT {countShapes(geometry.shapes, "CUT")}</Badge>
+              <Badge variant="frez" className="h-5 text-[10px]">FREZ {countShapes(geometry.shapes, "FREZ")}</Badge>
+              <span className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 font-mono text-[10px] text-muted-foreground/60">
+                {geometry.totalWidth}×{geometry.totalHeight}
+              </span>
+            </div>
           </div>
 
-          <div className="grid gap-6 2xl:grid-cols-2">
-            {sideKeysLeftRight.map((side) => {
-              const axis = sideCornerAxis[side];
-              return (
-                <SideEditor
-                  key={side}
-                  side={side}
-                  label={sideMeta[side].label}
-                  accentClass={sideMeta[side].accentClass}
-                  config={model.sides[side]}
-                  inwardLimit={side === "left" || side === "right" ? model.baseWidth : model.baseHeight}
-                  outwardLimit={geometry.flangeDepths[side]}
-                  onAddFlange={() => addFlange(side)}
-                  onAddFrez={() => addFrez(side)}
-                  onChangeFlange={(index, value) => updateFlange(side, index, value)}
-                  onChangeFrez={(index, value) => updateFrez(side, index, value)}
-                  onRemoveFlange={(index) => removeFlange(side, index)}
-                  onRemoveFrez={(index) => removeFrez(side, index)}
-                  onSetFrezMode={(mode) => setFrezMode(side, mode)}
-                  onSetFrezNotch={(index, position, value) => setFrezNotch(side, index, position, value)}
-                  onSetFlangeRelief={(index, position, value) => setFlangeRelief(side, index, position, value)}
-                />
-              );
-            })}
+          {/* Canvas */}
+          <div className="relative flex-1 overflow-hidden p-1">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.04),transparent_60%)]" />
+            <div className="relative h-full w-full">
+              <PreviewCanvas geometry={geometry} />
+            </div>
           </div>
-        </main>
+
+          {/* Warnings */}
+          {geometry.warnings.length > 0 && (
+            <div className="border-t border-destructive/20 bg-destructive/[0.06] px-4 py-2 text-[11px] text-destructive-foreground/80">
+              <strong className="font-semibold">⚠ </strong>
+              {geometry.warnings.join(" · ")}
+            </div>
+          )}
+        </div>
+
+        {/* ── RIGHT SIDE PANEL ── */}
+        <div className="col-start-3 row-start-2 h-full pl-1.5">
+          <SideEditorForSide side="right" />
+        </div>
+
+        {/* ── BOTTOM SIDE PANEL ── */}
+        <div className="col-start-2 row-start-3 px-0 pt-1.5">
+          <SideEditorForSide side="bottom" />
+        </div>
       </div>
     </div>
   );

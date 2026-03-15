@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { useSheetMetal } from "@/features/sheet-metal/context";
+import { ExportSettingsDialog } from "@/features/sheet-metal/export-settings-dialog";
 import { presetLibrary } from "@/features/sheet-metal/presets";
 import { useWorkspace } from "@/features/workspace/context";
 
@@ -57,6 +58,9 @@ export function AppNavbar() {
     setDesignName,
     setBaseValue,
     setOffsetCut,
+    setIncludeName,
+    setIncludeArrow,
+    setArrowDirection,
     setInvert,
     loadPreset,
     exportDxf,
@@ -222,7 +226,13 @@ export function AppNavbar() {
 
           <div className="h-4 w-px bg-white/10" />
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <ExportSettingsDialog
+              model={model}
+              onSetIncludeName={setIncludeName}
+              onSetIncludeArrow={setIncludeArrow}
+              onSetArrowDirection={setArrowDirection}
+            />
             <Button size="sm" variant="outline" className="h-8 px-4 text-xs" onClick={() => void handleSave()} disabled={!selectedProject || isSaving}>
               Save
             </Button>
