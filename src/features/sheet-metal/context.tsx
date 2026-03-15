@@ -78,6 +78,7 @@ type SheetMetalContextType = {
   saveDesign: (options?: { markExported?: boolean }) => Promise<Id<"designs"> | null>;
   exportDxf: () => Promise<Id<"designs"> | null>;
   setRubberband: (value: boolean) => void;
+  undo: () => void;
 };
 
 const SheetMetalContext = createContext<SheetMetalContextType | null>(null);
@@ -110,7 +111,32 @@ export function useSheetMetal() {
 export function SheetMetalProvider({ children }: { children: ReactNode }) {
   const { selectedProjectId, selectedProject } = useWorkspace();
   const defaultDraft = buildPresetDraft(1);
-  const [model, setModel] = useState<SheetMetalModel>(() => defaultDraft.model);
+  const [model, setRawModel] = useState<SheetMetalModel>(() => defaultDraft.model);
+  const [history, setHistory] = useState<SheetMetalModel[]>([]);
+
+  const setModel = (value: React.SetStateAction<SheetMetalModel>) => {
+    setRawModel((current) => {
+      const nextModel = typeof value === "function" ? (value as any)(current) : value;
+      if (nextModel !== current) {
+        setHistory((prev) => {
+          const h = [...prev, current];
+          if (h.length > 50) h.shift();
+          return h;
+        });
+      }
+      return nextModel;
+    });
+  };
+
+  function undo() {
+    setHistory((prev) => {
+      if (prev.length === 0) return prev;
+      const h = [...prev];
+      const last = h.pop()!;
+      setRawModel(last);
+      return h;
+    });
+  }
   const [designName, setDesignName] = useState(defaultDraft.designName);
   const [selectedDesignId, setSelectedDesignId] = useState<Id<"designs"> | null>(null);
   const [isNewDesign, setIsNewDesign] = useState(false);
@@ -139,7 +165,8 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const nextDraft = selectedProjectId ? buildPresetDraft(0) : buildPresetDraft(1);
-    setModel(applyProjectDefaults(nextDraft.model));
+    setRawModel(applyProjectDefaults(nextDraft.model));
+    setHistory([]);
     setDesignName(nextDraft.designName);
     setSelectedDesignId(null);
     setIsNewDesign(true);
@@ -313,7 +340,8 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
 
   function loadPreset(index: number) {
     const draft = buildPresetDraft(index);
-    setModel(draft.model);
+    setRawModel(draft.model);
+    setHistory([]);
     setDesignName(draft.designName);
     setSelectedDesignId(null);
     toast.info(`Loaded preset "${draft.designName}".`);
@@ -321,7 +349,8 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
 
   function startNewDesign() {
     const draft = buildPresetDraft(0);
-    setModel(applyProjectDefaults(draft.model));
+    setRawModel(applyProjectDefaults(draft.model));
+    setHistory([]);
     setDesignName(draft.designName);
     setSelectedDesignId(null);
     setIsNewDesign(true);
@@ -336,7 +365,8 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setModel(cloneModel(design.model));
+    setRawModel(cloneModel(design.model));
+    setHistory([]);
     setDesignName(design.name);
     setSelectedDesignId(design.id);
     setIsNewDesign(false);
@@ -434,6 +464,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
         saveDesign,
         exportDxf,
         setRubberband,
+        undo,
       }}
     >
       {children}

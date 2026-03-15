@@ -5,6 +5,8 @@ import type { SideKey } from "./types";
 type SelectedSideContextValue = {
   selectedSide: SideKey | null;
   setSelectedSide: (side: SideKey | null) => void;
+  selectedFlangeIndex: number | null;
+  setSelectedFlangeIndex: (index: number | null) => void;
 };
 
 const SelectedSideContext = createContext<SelectedSideContextValue | null>(null);
@@ -18,10 +20,16 @@ export function useSelectedSide() {
 }
 
 export function SelectedSideProvider({ children }: { children: ReactNode }) {
-  const [selectedSide, setSelectedSide] = useState<SideKey | null>(null);
+  const [selectedSide, setSelectedSideInternal] = useState<SideKey | null>(null);
+  const [selectedFlangeIndex, setSelectedFlangeIndex] = useState<number | null>(null);
+
+  const setSelectedSide = (side: SideKey | null) => {
+    setSelectedSideInternal(side);
+    setSelectedFlangeIndex(null);
+  };
 
   return (
-    <SelectedSideContext.Provider value={{ selectedSide, setSelectedSide }}>
+    <SelectedSideContext.Provider value={{ selectedSide, setSelectedSide, selectedFlangeIndex, setSelectedFlangeIndex }}>
       {children}
     </SelectedSideContext.Provider>
   );

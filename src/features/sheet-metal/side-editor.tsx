@@ -27,32 +27,45 @@ type SideEditorProps = {
   onChangeFrez: (index: number, value: number) => void;
   onRemoveFlange: (index: number) => void;
   onRemoveFrez: (index: number) => void;
+  onFocusFlange?: (index: number) => void;
   onSetFrezMode: (mode: FrezMode) => void;
   onSetFrezNotch: (index: number, position: FrezNotchPosition, value: boolean) => void;
   onSetFlangeRelief: (index: number, position: "start" | "end", value: boolean) => void;
   onClearAll: () => void;
   isSelected?: boolean;
+  selectedFlangeIndex?: number | null;
 };
 
 /* ------------------------------------------------------------------ */
 /*  FlangeChip — horizontal inline chip (top / bottom)                */
 /* ------------------------------------------------------------------ */
 function FlangeChip({
-  index, value, side, reliefs, onChange, onRemove, onSetRelief, inputDataProps,
+  index, value, side, reliefs, onChange, onRemove, onFocus, onSetRelief, inputDataProps, isSelected,
 }: {
   index: number; value: number; side: SideKey;
   reliefs: { start: boolean; end: boolean };
   onChange: (v: number) => void; onRemove: () => void;
+  onFocus?: () => void;
   onSetRelief: (pos: "start" | "end", v: boolean) => void;
   inputDataProps?: { "data-side": SideKey };
+  isSelected?: boolean;
 }) {
+  const baseClass = "group flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 transition-colors";
+  const stateClass = isSelected 
+    ? "border-emerald-500/50 bg-emerald-500/15 ring-1 ring-emerald-500/50"
+    : "border-white/[0.05] bg-black/15 hover:border-white/10 hover:bg-black/25";
+
   return (
-    <div className="group flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.05] bg-black/15 px-2 py-1 transition-colors hover:border-white/10 hover:bg-black/25">
+    <div className={`${baseClass} ${stateClass}`}>
       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">F{index + 1}</span>
       <Input
         type="text" inputMode="numeric" pattern="[0-9]*"
         value={value === 0 ? "" : value.toString()}
         onChange={(e) => { const r = e.target.value.replace(/[^0-9]/g, ""); onChange(r === "" ? 0 : Number(r)); }}
+        onFocus={(e) => {
+           onFocus?.();
+           e.target.select();
+        }}
         className="h-5 w-[40px] border-0 bg-white/[0.04] px-1 text-center font-mono text-[11px] transition-colors focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-emerald-500/50"
         {...(inputDataProps || {})}
       />
@@ -79,16 +92,23 @@ function FlangeChip({
 /*  3-col grid: [F#  centered] [input / checkboxes stacked] [× centered] */
 /* ------------------------------------------------------------------ */
 function FlangeBlock({
-  index, value, side, reliefs, onChange, onRemove, onSetRelief, inputDataProps,
+  index, value, side, reliefs, onChange, onRemove, onFocus, onSetRelief, inputDataProps, isSelected,
 }: {
   index: number; value: number; side: SideKey;
   reliefs: { start: boolean; end: boolean };
   onChange: (v: number) => void; onRemove: () => void;
+  onFocus?: () => void;
   onSetRelief: (pos: "start" | "end", v: boolean) => void;
   inputDataProps?: { "data-side": SideKey };
+  isSelected?: boolean;
 }) {
+  const baseClass = "group grid grid-cols-[auto,1fr,auto] items-center gap-x-1.5 rounded-lg border px-2 py-1 transition-colors";
+  const stateClass = isSelected 
+    ? "border-emerald-500/50 bg-emerald-500/15 ring-1 ring-emerald-500/50"
+    : "border-white/[0.05] bg-black/15 hover:border-white/10 hover:bg-black/25";
+
   return (
-    <div className="group grid grid-cols-[auto,1fr,auto] items-center gap-x-1.5 rounded-lg border border-white/[0.05] bg-black/15 px-2 py-1 transition-colors hover:border-white/10 hover:bg-black/25">
+    <div className={`${baseClass} ${stateClass}`}>
       {/* Col 1: label — grid items-center keeps it vertically centered */}
       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">F{index + 1}</span>
       {/* Col 2: input + checkboxes stacked */}
@@ -97,6 +117,10 @@ function FlangeBlock({
           type="text" inputMode="numeric" pattern="[0-9]*"
           value={value === 0 ? "" : value.toString()}
           onChange={(e) => { const r = e.target.value.replace(/[^0-9]/g, ""); onChange(r === "" ? 0 : Number(r)); }}
+          onFocus={(e) => {
+             onFocus?.();
+             e.target.select();
+          }}
           className="h-5 w-full border-0 bg-white/[0.04] px-1 text-center font-mono text-[11px] transition-colors focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-emerald-500/50"
           {...(inputDataProps || {})}
         />
@@ -212,8 +236,8 @@ function FrezBlock({
 export function SideEditor({
   side, label, accentClass, config, inwardLimit, outwardLimit,
   onAddFlange, onAddFrez, onChangeFlange, onChangeFrez,
-  onRemoveFlange, onRemoveFrez, onSetFrezMode, onSetFrezNotch, onSetFlangeRelief,
-  onClearAll, isSelected,
+  onRemoveFlange, onRemoveFrez, onFocusFlange, onSetFrezMode, onSetFrezNotch, onSetFlangeRelief,
+  onClearAll, isSelected, selectedFlangeIndex,
 }: SideEditorProps) {
   const [frezOpen, setFrezOpen] = useState(false);
 
@@ -293,8 +317,10 @@ export function SideEditor({
                     reliefs={flange.reliefs}
                     onChange={(v) => onChangeFlange(i, v)}
                     onRemove={() => onRemoveFlange(i)}
+                    onFocus={() => onFocusFlange?.(i)}
                     onSetRelief={(pos, v) => onSetFlangeRelief(i, pos, v)}
                     inputDataProps={inputDataProps}
+                    isSelected={selectedFlangeIndex === i}
                   />
                 ))}
               </div>
@@ -377,8 +403,10 @@ export function SideEditor({
               reliefs={flange.reliefs}
               onChange={(v) => onChangeFlange(i, v)}
               onRemove={() => onRemoveFlange(i)}
+              onFocus={() => onFocusFlange?.(i)}
               onSetRelief={(pos, v) => onSetFlangeRelief(i, pos, v)}
               inputDataProps={inputDataProps}
+              isSelected={selectedFlangeIndex === i}
             />
           ))}
         </div>

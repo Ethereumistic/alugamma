@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { flushSync } from "react-dom";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -15,8 +16,8 @@ type SheetMetalHotkeysProps = {
 
 export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) {
   const navigate = useNavigate();
-  const { saveDesign, exportDxf, startNewDesign, model, selectedDesignId, setRubberband, addFlange, addFrez, setFlangeRelief } = useSheetMetal();
-  const { selectedSide, setSelectedSide } = useSelectedSide();
+  const { saveDesign, exportDxf, startNewDesign, model, selectedDesignId, setRubberband, addFlange, addFrez, setFlangeRelief, undo, removeFlange, removeFrez } = useSheetMetal();
+  const { selectedSide, setSelectedSide, selectedFlangeIndex, setSelectedFlangeIndex } = useSelectedSide();
   const { setDesignToDelete } = useDesignDelete();
   const { selectedProjectId } = useWorkspace();
   const deleteDesign = useMutation(api.designs.deleteDesign);
@@ -25,39 +26,56 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
   const isSideSelected = selectedSide !== null;
   const canSave = selectedProjectId !== null;
 
-  useHotkey("Mod+S", () => {
+  useHotkey("Mod+S", (e) => {
+    e.preventDefault();
     if (canSave) {
       saveDesign();
     }
   });
 
-  useHotkey("Mod+N", () => {
+  useHotkey("Mod+N", (e) => {
+    e.preventDefault();
     startNewDesign();
     navigate("/sheet-metal/new");
   });
 
-  useHotkey("Mod+Delete", () => {
+  useHotkey("Mod+D", (e) => {
+    // Prevent standard browser bookmarking behavior everywhere inside the sheet metal app
+    e.preventDefault();
+  });
+
+  useHotkey("Mod+Z", (e) => {
+    e.preventDefault();
+    undo();
+  });
+
+  useHotkey("Mod+Delete", (e) => {
+    e.preventDefault();
     if (selectedDesignId) {
       setDesignToDelete(selectedDesignId);
     }
   });
 
-  useHotkey("Mod+Shift+Delete", async () => {
+  useHotkey("Mod+Shift+Delete", async (e) => {
+    e.preventDefault();
     if (selectedDesignId) {
       await deleteDesign({ designId: selectedDesignId });
       navigate("/sheet-metal/new");
     }
   });
 
-  useHotkey("Mod+R", () => {
+  useHotkey("Mod+R", (e) => {
+    e.preventDefault();
     setRubberband(!model.rubberband);
   });
 
-  useHotkey("Mod+F", () => {
+  useHotkey("Mod+F", (e) => {
+    e.preventDefault();
     previewCanvasRef?.current?.centerView();
   });
 
-  useHotkeySequence(["Mod+S", "D"], async () => {
+  useHotkeySequence(["Mod+S", "D"], async (e) => {
+    // Note: react-hotkeys doesn't pass the react event to sequence handlers sometimes, but we prevented default in Mod+S anyway
     const designId = await saveDesign();
     if (designId && selectedProjectId) {
       const newId = await duplicateDesign({ designId });
@@ -69,6 +87,30 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     await exportDxf();
   });
 
+  // Numbers 1-9 to select a flange in the selected side
+  const numbers = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+  for (let i = 0; i < numbers.length; i++) {
+    const num = numbers[i];
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useHotkey(`Mod+${num}` as any, (e) => {
+      e.preventDefault();
+      if (isSideSelected) {
+        const sideConfig = model.sides[selectedSide];
+        if (sideConfig.flanges.length > i) {
+          flushSync(() => {
+             setSelectedFlangeIndex(i);
+          });
+          const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
+          if (inputs.length > i) {
+            const el = inputs[i] as HTMLInputElement;
+            el.focus();
+            el.select();
+          }
+        }
+      }
+    });
+  }
+
   useHotkey("W", () => setSelectedSide("top"), { ignoreInputs: true });
   useHotkey("A", () => setSelectedSide("left"), { ignoreInputs: true });
   useHotkey("S", () => setSelectedSide("bottom"), { ignoreInputs: true });
@@ -78,33 +120,63 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
 
   useHotkey("F", () => {
     if (isSideSelected) {
-      addFlange(selectedSide);
-      setTimeout(() => {
-        const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
-        if (inputs.length > 0) {
-          (inputs[inputs.length - 1] as HTMLInputElement).focus();
-        }
-      }, 0);
+      flushSync(() => {
+        addFlange(selectedSide);
+        setSelectedFlangeIndex(model.sides[selectedSide].flanges.length); // The new one will be at current length
+      });
+      const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
+      if (inputs.length > 0) {
+        const el = inputs[inputs.length - 1] as HTMLInputElement;
+        el.focus();
+        el.select();
+      }
     }
   }, { ignoreInputs: true, enabled: isSideSelected });
 
   useHotkey("Z", () => {
     if (isSideSelected) {
-      addFrez(selectedSide);
-      setTimeout(() => {
-        const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
-        if (inputs.length > 0) {
-          (inputs[inputs.length - 1] as HTMLInputElement).focus();
+      flushSync(() => {
+        addFrez(selectedSide);
+      });
+      const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
+      if (inputs.length > 0) {
+        const el = inputs[inputs.length - 1] as HTMLInputElement;
+        el.focus();
+        el.select();
+      }
+    }
+  }, { ignoreInputs: true, enabled: isSideSelected });
+
+  useHotkey("Shift+F", () => {
+    if (isSideSelected) {
+      const sideConfig = model.sides[selectedSide];
+      if (sideConfig.flanges.length > 0) {
+        removeFlange(selectedSide, sideConfig.flanges.length - 1);
+        if (selectedFlangeIndex === sideConfig.flanges.length - 1) {
+           setSelectedFlangeIndex(sideConfig.flanges.length - 2 >= 0 ? sideConfig.flanges.length - 2 : null);
         }
-      }, 0);
+      }
+    }
+  }, { ignoreInputs: true, enabled: isSideSelected });
+
+  useHotkey("Shift+Z", () => {
+    if (isSideSelected) {
+      const sideConfig = model.sides[selectedSide];
+      if (sideConfig.frezLines.length > 0) {
+        removeFrez(selectedSide, sideConfig.frezLines.length - 1);
+      }
     }
   }, { ignoreInputs: true, enabled: isSideSelected });
 
   useHotkey("Q", () => {
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
-      if (sideConfig.flanges.length > 0) {
-        setFlangeRelief(selectedSide, sideConfig.flanges.length - 1, "start", !sideConfig.flanges[sideConfig.flanges.length - 1].reliefs.start);
+      const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length 
+        ? selectedFlangeIndex 
+        : sideConfig.flanges.length - 1;
+
+      if (targetIndex >= 0) {
+        setFlangeRelief(selectedSide, targetIndex, "start", !sideConfig.flanges[targetIndex].reliefs.start);
       }
     }
   }, { ignoreInputs: true, enabled: isSideSelected });
@@ -112,8 +184,12 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
   useHotkey("E", () => {
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
-      if (sideConfig.flanges.length > 0) {
-        setFlangeRelief(selectedSide, sideConfig.flanges.length - 1, "end", !sideConfig.flanges[sideConfig.flanges.length - 1].reliefs.end);
+      const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length 
+        ? selectedFlangeIndex 
+        : sideConfig.flanges.length - 1;
+
+      if (targetIndex >= 0) {
+        setFlangeRelief(selectedSide, targetIndex, "end", !sideConfig.flanges[targetIndex].reliefs.end);
       }
     }
   }, { ignoreInputs: true, enabled: isSideSelected });
