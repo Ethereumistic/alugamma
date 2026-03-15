@@ -110,9 +110,9 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
         const sideConfig = model.sides[selectedSide];
         if (sideConfig.flanges.length > i) {
           flushSync(() => {
-             setSelectedFlangeIndex(i);
+            setSelectedFlangeIndex(i);
           });
-          const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
+          const inputs = document.querySelectorAll<HTMLInputElement>(`input[data-side="${selectedSide}"]`);
           if (inputs.length > i) {
             const el = inputs[i] as HTMLInputElement;
             el.focus();
@@ -128,7 +128,7 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
   useHotkey("S", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("bottom"); }, { ignoreInputs: false });
   useHotkey("D", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("right"); }, { ignoreInputs: false });
 
-  useHotkey("Escape", (e) => { 
+  useHotkey("Escape", (e) => {
     if (isTextInput(e)) {
       (e.target as HTMLElement).blur();
     } else {
@@ -140,17 +140,22 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     if (isSideSelected) {
-      flushSync(() => {
-        addFlange(selectedSide);
-        setSelectedFlangeIndex(model.sides[selectedSide].flanges.length); // The new one will be at current length
-      });
+      // Blur BEFORE flushSync so the browser releases focus ownership
+      // before React mutates the DOM — otherwise .focus() on the new
+      // input is ignored because the browser still owns the old one.
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
+      const newFlangeIndex = model.sides[selectedSide].flanges.length;
+      flushSync(() => {
+        addFlange(selectedSide);
+        setSelectedFlangeIndex(newFlangeIndex);
+      });
       setTimeout(() => {
-        const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
+        // data-side is on the <input> itself, not a wrapper — select it directly.
+        const inputs = document.querySelectorAll<HTMLInputElement>(`input[data-side="${selectedSide}"]`);
         if (inputs.length > 0) {
-          const el = inputs[inputs.length - 1] as HTMLInputElement;
+          const el = inputs[inputs.length - 1];
           el.focus();
           el.select();
         }
@@ -162,16 +167,17 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     if (isSideSelected) {
-      flushSync(() => {
-        addFrez(selectedSide);
-      });
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
+      flushSync(() => {
+        addFrez(selectedSide);
+      });
       setTimeout(() => {
-        const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
+        // data-side is on the <input> itself, not a wrapper — select it directly.
+        const inputs = document.querySelectorAll<HTMLInputElement>(`input[data-side="${selectedSide}"]`);
         if (inputs.length > 0) {
-          const el = inputs[inputs.length - 1] as HTMLInputElement;
+          const el = inputs[inputs.length - 1];
           el.focus();
           el.select();
         }
@@ -187,7 +193,7 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
       if (sideConfig.flanges.length > 0) {
         removeFlange(selectedSide, sideConfig.flanges.length - 1);
         if (selectedFlangeIndex === sideConfig.flanges.length - 1) {
-           setSelectedFlangeIndex(sideConfig.flanges.length - 2 >= 0 ? sideConfig.flanges.length - 2 : null);
+          setSelectedFlangeIndex(sideConfig.flanges.length - 2 >= 0 ? sideConfig.flanges.length - 2 : null);
         }
       }
     }
@@ -209,8 +215,8 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
-      const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length 
-        ? selectedFlangeIndex 
+      const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length
+        ? selectedFlangeIndex
         : sideConfig.flanges.length - 1;
 
       if (targetIndex >= 0) {
@@ -224,8 +230,8 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
-      const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length 
-        ? selectedFlangeIndex 
+      const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length
+        ? selectedFlangeIndex
         : sideConfig.flanges.length - 1;
 
       if (targetIndex >= 0) {

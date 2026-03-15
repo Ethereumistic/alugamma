@@ -227,40 +227,79 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
   function addFlange(side: SideKey) {
     patchSide(side, (draft) => {
       const newCount = draft.flanges.length + 1;
-      let newAmounts: number[];
-      if (newCount === 1) newAmounts = selectedProject?.defaults?.flangeDefaults.count1 || [20];
-      else if (newCount === 2) newAmounts = selectedProject?.defaults?.flangeDefaults.count2 || [25, 20];
-      else if (newCount === 3) newAmounts = selectedProject?.defaults?.flangeDefaults.count3 || [60, 40, 20];
-      else newAmounts = draft.flanges.map((f) => f.amount).concat([20]);
 
-      const updatedFlanges = newAmounts.map((amount, i) => {
-        if (i < draft.flanges.length) {
-          return { ...draft.flanges[i], amount };
+      const defaults = selectedProject?.defaults?.flangeDefaults;
+      const presets = [
+        defaults?.count1 ?? [20],
+        defaults?.count2 ?? [25, 20],
+        defaults?.count3 ?? [60, 40, 20],
+      ];
+
+      if (newCount <= presets.length) {
+        const newPreset = presets[newCount - 1];
+        const prevPreset = newCount > 1 ? presets[newCount - 2] : [];
+
+        // Check if all existing flanges still match the previous preset's amounts.
+        // If they do, the user hasn't customized them — apply the full new preset.
+        // If any amount diverges, the user typed something custom — preserve it and
+        // only append a new flange with the last slot's default.
+        const existingMatchPreset = draft.flanges.every(
+          (f, i) => f.amount === (prevPreset[i] ?? 0)
+        );
+
+        if (existingMatchPreset) {
+          const updatedFlanges = newPreset.map((amount, i) =>
+            i < draft.flanges.length
+              ? { ...draft.flanges[i], amount }
+              : createFlangeMeasurement(amount)
+          );
+          return { ...draft, flanges: updatedFlanges };
         }
-        return createFlangeMeasurement(amount);
-      });
+      }
 
-      return { ...draft, flanges: updatedFlanges };
+      // User has custom amounts or we're beyond preset range — just append with a sensible default.
+      const newFlangeAmount =
+        newCount <= presets.length
+          ? (presets[newCount - 1][newCount - 1] ?? 20)
+          : 20;
+      return { ...draft, flanges: [...draft.flanges, createFlangeMeasurement(newFlangeAmount)] };
     });
   }
 
   function addFrez(side: SideKey) {
     patchSide(side, (draft) => {
       const newCount = draft.frezLines.length + 1;
-      let newAmounts: number[];
-      if (newCount === 1) newAmounts = selectedProject?.defaults?.frezDefaults.count1 || [24];
-      else if (newCount === 2) newAmounts = selectedProject?.defaults?.frezDefaults.count2 || [24, 24];
-      else if (newCount === 3) newAmounts = selectedProject?.defaults?.frezDefaults.count3 || [24, 24, 24];
-      else newAmounts = draft.frezLines.map((f) => f.amount).concat([24]);
 
-      const updatedFrez = newAmounts.map((amount, i) => {
-        if (i < draft.frezLines.length) {
-          return { ...draft.frezLines[i], amount };
+      const defaults = selectedProject?.defaults?.frezDefaults;
+      const presets = [
+        defaults?.count1 ?? [24],
+        defaults?.count2 ?? [24, 24],
+        defaults?.count3 ?? [24, 24, 24],
+      ];
+
+      if (newCount <= presets.length) {
+        const newPreset = presets[newCount - 1];
+        const prevPreset = newCount > 1 ? presets[newCount - 2] : [];
+
+        const existingMatchPreset = draft.frezLines.every(
+          (f, i) => f.amount === (prevPreset[i] ?? 0)
+        );
+
+        if (existingMatchPreset) {
+          const updatedFrez = newPreset.map((amount, i) =>
+            i < draft.frezLines.length
+              ? { ...draft.frezLines[i], amount }
+              : createFrezMeasurement(amount)
+          );
+          return { ...draft, frezLines: updatedFrez };
         }
-        return createFrezMeasurement(amount);
-      });
+      }
 
-      return { ...draft, frezLines: updatedFrez };
+      const newFrezAmount =
+        newCount <= presets.length
+          ? (presets[newCount - 1][newCount - 1] ?? 24)
+          : 24;
+      return { ...draft, frezLines: [...draft.frezLines, createFrezMeasurement(newFrezAmount)] };
     });
   }
 
