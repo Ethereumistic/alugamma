@@ -24,6 +24,31 @@ function isInsideFlangeInput(e: KeyboardEvent) {
   return isTextInput(e) && target.hasAttribute("data-side");
 }
 
+// data-side lives on the <input> itself — query it directly, never as a descendant.
+function getFlangeInputs(side: SideKey) {
+  return document.querySelectorAll<HTMLInputElement>(`input[data-side="${side}"]`);
+}
+
+function focusFlangeInput(side: SideKey, index: number) {
+  setTimeout(() => {
+    const inputs = getFlangeInputs(side);
+    if (inputs.length > index) {
+      inputs[index].focus();
+      inputs[index].select();
+    }
+  }, 0);
+}
+
+function focusLastFlangeInput(side: SideKey) {
+  setTimeout(() => {
+    const inputs = getFlangeInputs(side);
+    if (inputs.length > 0) {
+      inputs[inputs.length - 1].focus();
+      inputs[inputs.length - 1].select();
+    }
+  }, 0);
+}
+
 export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) {
   const navigate = useNavigate();
   const { saveDesign, exportDxf, startNewDesign, model, selectedDesignId, setRubberband, addFlange, addFrez, setFlangeRelief, undo, removeFlange, removeFrez } = useSheetMetal();
@@ -38,9 +63,7 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
 
   useHotkey("Mod+S", (e) => {
     e.preventDefault();
-    if (canSave) {
-      saveDesign();
-    }
+    if (canSave) saveDesign();
   });
 
   useHotkey("Mod+N", (e) => {
@@ -50,7 +73,6 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
   });
 
   useHotkey("Mod+D", (e) => {
-    // Prevent standard browser bookmarking behavior everywhere inside the sheet metal app
     e.preventDefault();
   });
 
@@ -61,9 +83,7 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
 
   useHotkey("Mod+Delete", (e) => {
     e.preventDefault();
-    if (selectedDesignId) {
-      setDesignToDelete(selectedDesignId);
-    }
+    if (selectedDesignId) setDesignToDelete(selectedDesignId);
   });
 
   useHotkey("Mod+Shift+Delete", async (e) => {
@@ -84,8 +104,7 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     previewCanvasRef?.current?.centerView();
   });
 
-  useHotkeySequence(["Mod+S", "D"], async (e) => {
-    // Note: react-hotkeys doesn't pass the react event to sequence handlers sometimes, but we prevented default in Mod+S anyway
+  useHotkeySequence(["Mod+S", "D"], async () => {
     const designId = await saveDesign();
     if (designId && selectedProjectId) {
       const newId = await duplicateDesign({ designId });
@@ -97,36 +116,59 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     await exportDxf();
   });
 
-  // Numbers 1-9 to select a flange in the selected side
+  // Mod+1–9: jump focus to a specific flange by index
   const numbers = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
   for (let i = 0; i < numbers.length; i++) {
-    const num = numbers[i];
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    useHotkey(`Mod+${num}` as any, (e) => {
-      // Ensure mod key is actually pressed to avoid swallowing regular digit typing in inputs
+    useHotkey(`Mod+${numbers[i]}` as any, (e) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       if (isSideSelected) {
         const sideConfig = model.sides[selectedSide];
         if (sideConfig.flanges.length > i) {
-          flushSync(() => {
-            setSelectedFlangeIndex(i);
-          });
-          const inputs = document.querySelectorAll<HTMLInputElement>(`input[data-side="${selectedSide}"]`);
-          if (inputs.length > i) {
-            const el = inputs[i] as HTMLInputElement;
-            el.focus();
-            el.select();
-          }
+          flushSync(() => setSelectedFlangeIndex(i));
+          focusFlangeInput(selectedSide, i);
         }
       }
     });
   }
 
-  useHotkey("W", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("top"); }, { ignoreInputs: false });
-  useHotkey("A", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("left"); }, { ignoreInputs: false });
-  useHotkey("S", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("bottom"); }, { ignoreInputs: false });
-  useHotkey("D", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("right"); }, { ignoreInputs: false });
+  // WASD: select side, auto-focus last flange input if flanges exist
+  useHotkey("W", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
+    const side: SideKey = "top";
+    const count = model.sides[side].flanges.length;
+    setSelectedSide(side);
+    if (count > 0) { setSelectedFlangeIndex(count - 1); focusLastFlangeInput(side); }
+  }, { ignoreInputs: false });
+
+  useHotkey("A", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
+    const side: SideKey = "left";
+    const count = model.sides[side].flanges.length;
+    setSelectedSide(side);
+    if (count > 0) { setSelectedFlangeIndex(count - 1); focusLastFlangeInput(side); }
+  }, { ignoreInputs: false });
+
+  useHotkey("S", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
+    const side: SideKey = "bottom";
+    const count = model.sides[side].flanges.length;
+    setSelectedSide(side);
+    if (count > 0) { setSelectedFlangeIndex(count - 1); focusLastFlangeInput(side); }
+  }, { ignoreInputs: false });
+
+  useHotkey("D", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
+    const side: SideKey = "right";
+    const count = model.sides[side].flanges.length;
+    setSelectedSide(side);
+    if (count > 0) { setSelectedFlangeIndex(count - 1); focusLastFlangeInput(side); }
+  }, { ignoreInputs: false });
 
   useHotkey("Escape", (e) => {
     if (isTextInput(e)) {
@@ -136,92 +178,97 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     }
   });
 
+  // F: add flange, focus its input
+  // Blur BEFORE flushSync — browser must release focus before DOM mutation,
+  // otherwise .focus() on the new input is ignored.
   useHotkey("F", (e) => {
     if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     if (isSideSelected) {
-      // Blur BEFORE flushSync so the browser releases focus ownership
-      // before React mutates the DOM — otherwise .focus() on the new
-      // input is ignored because the browser still owns the old one.
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-      const newFlangeIndex = model.sides[selectedSide].flanges.length;
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      const newIndex = model.sides[selectedSide].flanges.length;
       flushSync(() => {
         addFlange(selectedSide);
-        setSelectedFlangeIndex(newFlangeIndex);
+        setSelectedFlangeIndex(newIndex);
       });
-      setTimeout(() => {
-        // data-side is on the <input> itself, not a wrapper — select it directly.
-        const inputs = document.querySelectorAll<HTMLInputElement>(`input[data-side="${selectedSide}"]`);
-        if (inputs.length > 0) {
-          const el = inputs[inputs.length - 1];
-          el.focus();
-          el.select();
-        }
-      }, 0);
+      focusLastFlangeInput(selectedSide);
     }
   }, { ignoreInputs: false, enabled: isSideSelected });
 
+  // Z: add frez, focus its input
   useHotkey("Z", (e) => {
     if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     if (isSideSelected) {
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-      flushSync(() => {
-        addFrez(selectedSide);
-      });
-      setTimeout(() => {
-        // data-side is on the <input> itself, not a wrapper — select it directly.
-        const inputs = document.querySelectorAll<HTMLInputElement>(`input[data-side="${selectedSide}"]`);
-        if (inputs.length > 0) {
-          const el = inputs[inputs.length - 1];
-          el.focus();
-          el.select();
-        }
-      }, 0);
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      flushSync(() => addFrez(selectedSide));
+      focusLastFlangeInput(selectedSide);
     }
   }, { ignoreInputs: false, enabled: isSideSelected });
 
+  // Shift+F: delete the focused flange (falls back to last), refocus
   useHotkey("Shift+F", (e) => {
     if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
-      if (sideConfig.flanges.length > 0) {
-        removeFlange(selectedSide, sideConfig.flanges.length - 1);
-        if (selectedFlangeIndex === sideConfig.flanges.length - 1) {
-          setSelectedFlangeIndex(sideConfig.flanges.length - 2 >= 0 ? sideConfig.flanges.length - 2 : null);
-        }
+      if (sideConfig.flanges.length === 0) return;
+      const targetIndex =
+        selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length
+          ? selectedFlangeIndex
+          : sideConfig.flanges.length - 1;
+      removeFlange(selectedSide, targetIndex);
+      const newCount = sideConfig.flanges.length - 1;
+      if (newCount > 0) {
+        const nextIndex = Math.min(targetIndex, newCount - 1);
+        setSelectedFlangeIndex(nextIndex);
+        focusFlangeInput(selectedSide, nextIndex);
+      } else {
+        setSelectedFlangeIndex(null);
       }
     }
   }, { ignoreInputs: false, enabled: isSideSelected });
 
+  // Shift+Z: delete the last frez
   useHotkey("Shift+Z", (e) => {
     if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
-      if (sideConfig.frezLines.length > 0) {
-        removeFrez(selectedSide, sideConfig.frezLines.length - 1);
-      }
+      if (sideConfig.frezLines.length > 0) removeFrez(selectedSide, sideConfig.frezLines.length - 1);
     }
   }, { ignoreInputs: false, enabled: isSideSelected });
 
+  // Mod+Shift+F: delete ALL flanges on selected side
+  useHotkey("Mod+Shift+F", (e) => {
+    e.preventDefault();
+    if (isSideSelected) {
+      const sideConfig = model.sides[selectedSide];
+      for (let i = sideConfig.flanges.length - 1; i >= 0; i--) removeFlange(selectedSide, i);
+      setSelectedFlangeIndex(null);
+    }
+  });
+
+  // Mod+Shift+Z: delete ALL frez on selected side
+  useHotkey("Mod+Shift+Z", (e) => {
+    e.preventDefault();
+    if (isSideSelected) {
+      const sideConfig = model.sides[selectedSide];
+      for (let i = sideConfig.frezLines.length - 1; i >= 0; i--) removeFrez(selectedSide, i);
+    }
+  });
+
+  // Q/E: toggle start/end relief on focused flange
   useHotkey("Q", (e) => {
     if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
-      const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length
-        ? selectedFlangeIndex
-        : sideConfig.flanges.length - 1;
-
-      if (targetIndex >= 0) {
-        setFlangeRelief(selectedSide, targetIndex, "start", !sideConfig.flanges[targetIndex].reliefs.start);
-      }
+      const targetIndex =
+        selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length
+          ? selectedFlangeIndex
+          : sideConfig.flanges.length - 1;
+      if (targetIndex >= 0) setFlangeRelief(selectedSide, targetIndex, "start", !sideConfig.flanges[targetIndex].reliefs.start);
     }
   }, { ignoreInputs: false, enabled: isSideSelected });
 
@@ -230,13 +277,11 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
-      const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length
-        ? selectedFlangeIndex
-        : sideConfig.flanges.length - 1;
-
-      if (targetIndex >= 0) {
-        setFlangeRelief(selectedSide, targetIndex, "end", !sideConfig.flanges[targetIndex].reliefs.end);
-      }
+      const targetIndex =
+        selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length
+          ? selectedFlangeIndex
+          : sideConfig.flanges.length - 1;
+      if (targetIndex >= 0) setFlangeRelief(selectedSide, targetIndex, "end", !sideConfig.flanges[targetIndex].reliefs.end);
     }
   }, { ignoreInputs: false, enabled: isSideSelected });
 
