@@ -23,6 +23,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@tanstack/react-hotkeys": "^0.4.1",
     "class-variance-authority": "^0.7.1",
     "clipper-lib": "^6.4.2",
     "clsx": "^2.1.1",
@@ -40,6 +41,8 @@
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
+    "@tanstack/react-devtools": "^0.10.0",
+    "@tanstack/react-hotkeys-devtools": "^0.4.1",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.12",

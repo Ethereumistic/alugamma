@@ -1,4 +1,4 @@
-import { ChevronDown, FileStack, LayoutDashboard, LogOut, Plus, ScissorsLineDashed, UserRound, Search, Filter, MoreHorizontal, Star, Copy } from "lucide-react";
+import { ChevronDown, FileStack, LayoutDashboard, LogOut, Plus, ScissorsLineDashed, UserRound, Search, Filter, MoreHorizontal, Star, Copy, Settings } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -43,8 +43,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useSheetMetal } from "@/features/sheet-metal/context";
 import { useWorkspace, type ProjectDesignSummary } from "@/features/workspace/context";
+import { useDesignDelete } from "@/features/workspace/design-delete-context";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { WorkspaceSwitcher } from "./workspace-switcher";
+import { useSettings } from "@/features/settings/context";
 
 const navItems = [
   {
@@ -92,15 +94,15 @@ export function AppSidebar() {
   const { signOut } = useAuthActions();
   const { viewer, authenticated, organizations, projects, selectedOrganizationId, selectedProjectId, setSelectedOrganizationId, setSelectedProjectId, selectedOrganization, selectedProject } = useWorkspace();
   const { startNewDesign, saveDesign } = useSheetMetal();
+  const { openSettings } = useSettings();
+  const { designToDelete, setDesignToDelete } = useDesignDelete();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "a-z" | "z-a">("newest");
 
-  const [designToDelete, setDesignToDelete] = useState<Id<"designs"> | null>(null);
   const [designToRename, setDesignToRename] = useState<{ id: Id<"designs">, name: string } | null>(null);
 
   const duplicateDesign = useMutation(api.designs.duplicateDesign);
-  const deleteDesign = useMutation(api.designs.deleteDesign);
   const toggleStarDesign = useMutation(api.designs.toggleStarDesign);
   const renameDesign = useMutation(api.designs.renameDesign);
 
@@ -336,16 +338,27 @@ export function AppSidebar() {
         <SidebarFooter className="border-t border-white/6 bg-black/20 px-4 py-4">
           {authenticated && viewer ? (
             <div className="space-y-3">
-              <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/20 text-slate-300">
-                    <UserRound className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-white">{viewer.name || viewer.email}</p>
-                    <p className="truncate text-xs text-slate-500">{viewer.email}</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/20 text-slate-300">
+                      <UserRound className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">{viewer.name || viewer.email}</p>
+                      <p className="truncate text-xs text-slate-500">{viewer.email}</p>
+                    </div>
                   </div>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-white"
+                  onClick={() => openSettings("hotkeys")}
+                  title="Settings"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
               </div>
               <Button
                 variant="outline"
@@ -363,34 +376,6 @@ export function AppSidebar() {
           )}
         </SidebarFooter>
       </Sidebar>
-
-      <AlertDialog open={!!designToDelete} onOpenChange={(open) => !open && setDesignToDelete(null)}>
-        <AlertDialogContent className="border-white/10 bg-[#090d16] text-white sm:max-w-[425px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Delete design</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-400">
-              Are you sure you want to delete this design? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-white/10 bg-transparent text-white hover:bg-white/5">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-500 text-white hover:bg-red-600 border-none"
-              onClick={async () => {
-                if (designToDelete) {
-                  await deleteDesign({ designId: designToDelete });
-                  if (location.pathname === `/sheet-metal/${designToDelete}`) {
-                    navigate("/sheet-metal/new");
-                  }
-                  setDesignToDelete(null);
-                }
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={!!designToRename} onOpenChange={(open) => !open && setDesignToRename(null)}>
         <AlertDialogContent className="border-white/10 bg-[#090d16] text-white sm:max-w-[425px]">

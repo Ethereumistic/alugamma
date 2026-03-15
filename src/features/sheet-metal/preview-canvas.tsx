@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
 import { Square, Maximize } from "lucide-react";
 
@@ -44,10 +44,15 @@ function CanvasControls() {
   );
 }
 
-export function PreviewCanvas({ geometry }: PreviewCanvasProps) {
+export const PreviewCanvas = forwardRef<{ centerView: () => void }, PreviewCanvasProps>(({ geometry }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const transformRef = useRef<any>(null);
   const [hoveredLine, setHoveredLine] = useState<LineShape | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    centerView: () => transformRef.current?.centerView(),
+  }));
   const { model } = useSheetMetal();
 
   // Exact 1:1 pixel size for the drawing
@@ -159,6 +164,7 @@ export function PreviewCanvas({ geometry }: PreviewCanvasProps) {
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#080c14]">
       <TransformWrapper
+        ref={transformRef}
         initialScale={1}
         minScale={0.1}
         maxScale={8}
@@ -188,4 +194,4 @@ export function PreviewCanvas({ geometry }: PreviewCanvasProps) {
       </div>
     </div>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSheetMetal } from "@/features/sheet-metal/context";
 import { countShapes } from "@/features/sheet-metal/geometry";
+import { SheetMetalHotkeys } from "@/features/sheet-metal/hotkeys";
 import { PreviewCanvas } from "@/features/sheet-metal/preview-canvas";
 import { SideEditor } from "@/features/sheet-metal/side-editor";
+import { useSelectedSide } from "@/features/sheet-metal/selected-side-context";
 import { type CornerKey, type CornerReliefAxis, type SideKey } from "@/features/sheet-metal/types";
 import { useWorkspace } from "@/features/workspace/context";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -51,6 +53,8 @@ function SideEditorForSide({ side }: { side: SideKey }) {
     setFrezNotch,
     setFlangeRelief,
   } = useSheetMetal();
+  const { selectedSide } = useSelectedSide();
+  const isSelected = selectedSide === side;
 
   const handleClearAll = () => {
     // Remove frez lines first (reverse to keep indices stable)
@@ -81,6 +85,7 @@ function SideEditorForSide({ side }: { side: SideKey }) {
       onSetFrezNotch={(index, position, value) => setFrezNotch(side, index, position, value)}
       onSetFlangeRelief={(index, position, value) => setFlangeRelief(side, index, position, value)}
       onClearAll={handleClearAll}
+      isSelected={isSelected}
     />
   );
 }
@@ -88,6 +93,7 @@ function SideEditorForSide({ side }: { side: SideKey }) {
 export default function SheetMetalApp() {
   const { designId } = useParams<{ designId?: string }>();
   const isNewDesign = !designId || designId === "new";
+  const previewCanvasRef = useRef<{ centerView: () => void }>(null);
   const {
     model,
     geometry,
@@ -121,17 +127,6 @@ export default function SheetMetalApp() {
   const routedProject = designId ? projects.find((project) => project.designs.some((design) => design.id === designId)) ?? null : null;
 
   useEffect(() => {
-    if (!designId || designId === "new" || !routedProject) {
-      return;
-    }
-
-    if (selectedProjectId !== routedProject.id) {
-      setSelectedOrganizationId(routedProject.organizationId);
-      setSelectedProjectId(routedProject.id);
-    }
-  }, [designId, routedProject, selectedProjectId, setSelectedOrganizationId, setSelectedProjectId]);
-
-  useEffect(() => {
     if (isNewDesign) {
       if (selectedDesignId !== null) {
         startNewDesign();
@@ -139,7 +134,9 @@ export default function SheetMetalApp() {
       return;
     }
 
-    if (!routedProject || selectedProjectId !== routedProject.id) {
+    const designInSaved = savedDesigns.some((design) => design.id === designId);
+
+    if (!designInSaved) {
       return;
     }
 
@@ -147,10 +144,13 @@ export default function SheetMetalApp() {
       return;
     }
 
-    if (savedDesigns.some((design) => design.id === designId)) {
-      loadSavedDesign(designId as Id<"designs">);
+    loadSavedDesign(designId as Id<"designs">);
+
+    if (routedProject && selectedProjectId !== routedProject.id) {
+      setSelectedOrganizationId(routedProject.organizationId);
+      setSelectedProjectId(routedProject.id);
     }
-  }, [designId, isNewDesign, loadSavedDesign, routedProject, savedDesigns, selectedDesignId, selectedProjectId, startNewDesign]);
+  }, [designId, isNewDesign, loadSavedDesign, routedProject, savedDesigns, selectedDesignId, selectedProjectId, setSelectedOrganizationId, setSelectedProjectId, startNewDesign]);
 
   if (isLoadingWorkspace) {
     return (
@@ -185,7 +185,7 @@ export default function SheetMetalApp() {
     );
   }
 
-  if (designId && designId !== "new" && !routedProject) {
+  if (designId && designId !== "new" && !savedDesigns.some((design) => design.id === designId)) {
     return (
       <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-4 py-10 lg:px-8">
         <Card className="border-white/10 bg-card/85">
@@ -223,6 +223,7 @@ export default function SheetMetalApp() {
 
   return (
     <div className="spatial-workspace flex h-[calc(100vh-4rem)] w-full flex-col overflow-hidden">
+      <SheetMetalHotkeys previewCanvasRef={previewCanvasRef} />
       {/* ═══════════════════════════════════════════════════════════════
           SPATIAL GRID LAYOUT
           The preview is the center of the universe.
@@ -265,7 +266,7 @@ export default function SheetMetalApp() {
           <div className="relative flex-1 overflow-hidden p-1">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,0.04),transparent_60%)]" />
             <div className="relative h-full w-full">
-              <PreviewCanvas geometry={geometry} />
+              <PreviewCanvas ref={previewCanvasRef} geometry={geometry} />
             </div>
           </div>
 

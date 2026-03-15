@@ -31,18 +31,20 @@ type SideEditorProps = {
   onSetFrezNotch: (index: number, position: FrezNotchPosition, value: boolean) => void;
   onSetFlangeRelief: (index: number, position: "start" | "end", value: boolean) => void;
   onClearAll: () => void;
+  isSelected?: boolean;
 };
 
 /* ------------------------------------------------------------------ */
 /*  FlangeChip — horizontal inline chip (top / bottom)                */
 /* ------------------------------------------------------------------ */
 function FlangeChip({
-  index, value, side, reliefs, onChange, onRemove, onSetRelief,
+  index, value, side, reliefs, onChange, onRemove, onSetRelief, inputDataProps,
 }: {
   index: number; value: number; side: SideKey;
   reliefs: { start: boolean; end: boolean };
   onChange: (v: number) => void; onRemove: () => void;
   onSetRelief: (pos: "start" | "end", v: boolean) => void;
+  inputDataProps?: { "data-side": SideKey };
 }) {
   return (
     <div className="group flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.05] bg-black/15 px-2 py-1 transition-colors hover:border-white/10 hover:bg-black/25">
@@ -52,6 +54,7 @@ function FlangeChip({
         value={value === 0 ? "" : value.toString()}
         onChange={(e) => { const r = e.target.value.replace(/[^0-9]/g, ""); onChange(r === "" ? 0 : Number(r)); }}
         className="h-5 w-[40px] border-0 bg-white/[0.04] px-1 text-center font-mono text-[11px] transition-colors focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-emerald-500/50"
+        {...(inputDataProps || {})}
       />
       <label className="flex cursor-pointer items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-white/90">
         <Checkbox checked={reliefs.start} onCheckedChange={(c) => onSetRelief("start", !!c)}
@@ -76,12 +79,13 @@ function FlangeChip({
 /*  3-col grid: [F#  centered] [input / checkboxes stacked] [× centered] */
 /* ------------------------------------------------------------------ */
 function FlangeBlock({
-  index, value, side, reliefs, onChange, onRemove, onSetRelief,
+  index, value, side, reliefs, onChange, onRemove, onSetRelief, inputDataProps,
 }: {
   index: number; value: number; side: SideKey;
   reliefs: { start: boolean; end: boolean };
   onChange: (v: number) => void; onRemove: () => void;
   onSetRelief: (pos: "start" | "end", v: boolean) => void;
+  inputDataProps?: { "data-side": SideKey };
 }) {
   return (
     <div className="group grid grid-cols-[auto,1fr,auto] items-center gap-x-1.5 rounded-lg border border-white/[0.05] bg-black/15 px-2 py-1 transition-colors hover:border-white/10 hover:bg-black/25">
@@ -94,6 +98,7 @@ function FlangeBlock({
           value={value === 0 ? "" : value.toString()}
           onChange={(e) => { const r = e.target.value.replace(/[^0-9]/g, ""); onChange(r === "" ? 0 : Number(r)); }}
           className="h-5 w-full border-0 bg-white/[0.04] px-1 text-center font-mono text-[11px] transition-colors focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-emerald-500/50"
+          {...(inputDataProps || {})}
         />
         <div className="flex items-center gap-2">
           <label className="flex cursor-pointer items-center gap-0.5 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground/55 transition-colors hover:text-white/90">
@@ -121,12 +126,13 @@ function FlangeBlock({
 /*  FrezChip — horizontal (top / bottom)                              */
 /* ------------------------------------------------------------------ */
 function FrezChip({
-  index, value, side, notches, onChange, onRemove, onSetNotch,
+  index, value, side, notches, onChange, onRemove, onSetNotch, inputDataProps,
 }: {
   index: number; value: number; side: SideKey;
   notches: { start: boolean; end: boolean };
   onChange: (v: number) => void; onRemove: () => void;
   onSetNotch: (pos: FrezNotchPosition, v: boolean) => void;
+  inputDataProps?: { "data-side": SideKey };
 }) {
   return (
     <div className="group flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.05] bg-black/15 px-2 py-1 transition-colors hover:border-fuchsia-500/20 hover:bg-black/25">
@@ -136,6 +142,7 @@ function FrezChip({
         value={value === 0 ? "" : value.toString()}
         onChange={(e) => { const r = e.target.value.replace(/[^0-9]/g, ""); onChange(r === "" ? 0 : Number(r)); }}
         className="h-5 w-[40px] border-0 bg-white/[0.04] px-1 text-center font-mono text-[11px] transition-colors focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-fuchsia-500/50"
+        {...(inputDataProps || {})}
       />
       <label className="flex cursor-pointer items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-white/90">
         <Checkbox checked={notches.start} onCheckedChange={(c) => onSetNotch("start", !!c)}
@@ -159,12 +166,13 @@ function FrezChip({
 /*  FrezBlock — left / right panels                                   */
 /* ------------------------------------------------------------------ */
 function FrezBlock({
-  index, value, side, notches, onChange, onRemove, onSetNotch,
+  index, value, side, notches, onChange, onRemove, onSetNotch, inputDataProps,
 }: {
   index: number; value: number; side: SideKey;
   notches: { start: boolean; end: boolean };
   onChange: (v: number) => void; onRemove: () => void;
   onSetNotch: (pos: FrezNotchPosition, v: boolean) => void;
+  inputDataProps?: { "data-side": SideKey };
 }) {
   return (
     <div className="group grid grid-cols-[auto,1fr,auto] items-center gap-x-1.5 rounded-lg border border-white/[0.05] bg-black/15 px-2 py-1 transition-colors hover:border-fuchsia-500/20 hover:bg-black/25">
@@ -175,6 +183,7 @@ function FrezBlock({
           value={value === 0 ? "" : value.toString()}
           onChange={(e) => { const r = e.target.value.replace(/[^0-9]/g, ""); onChange(r === "" ? 0 : Number(r)); }}
           className="h-5 w-full border-0 bg-white/[0.04] px-1 text-center font-mono text-[11px] transition-colors focus-visible:bg-white/[0.08] focus-visible:ring-1 focus-visible:ring-fuchsia-500/50"
+          {...(inputDataProps || {})}
         />
         <div className="flex items-center gap-2">
           <label className="flex cursor-pointer items-center gap-0.5 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground/55 transition-colors hover:text-white/90">
@@ -204,7 +213,7 @@ export function SideEditor({
   side, label, accentClass, config, inwardLimit, outwardLimit,
   onAddFlange, onAddFrez, onChangeFlange, onChangeFrez,
   onRemoveFlange, onRemoveFrez, onSetFrezMode, onSetFrezNotch, onSetFlangeRelief,
-  onClearAll,
+  onClearAll, isSelected,
 }: SideEditorProps) {
   const [frezOpen, setFrezOpen] = useState(false);
 
@@ -214,8 +223,12 @@ export function SideEditor({
   const isHorizontal = side === "top" || side === "bottom";
   const hasAny = config.flanges.length > 0 || config.frezLines.length > 0;
 
+  const inputDataProps = {
+    "data-side": side,
+  };
+
   /* ── Static header: [label] [+F] [+Z] [🗑] ──────────────────────
-     Fixed height h-[30px] on BOTH sides so the horizontal card never
+     Fixed height h-[30px] on BOTH sides so that the horizontal card never
      shifts height when the first chip appears next to it.
      The h-[30px] equals: py-1 (4px top + 4px bottom) + content ~22px.
      We use h-[30px] explicitly so both zero-flange and n-flange states
@@ -262,7 +275,7 @@ export function SideEditor({
     ══════════════════════════════════════════════════════════════════ */
   if (isHorizontal) {
     return (
-      <div className="side-editor-panel flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-card/70 backdrop-blur-sm">
+      <div className={`side-editor-panel flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-card/70 backdrop-blur-sm ${isSelected ? "ring-1 ring-emerald-500/40" : ""}`}>
         {/* Single row — header + chip scroll area, both h-[30px] */}
         <div className="flex h-[30px] min-w-0 items-stretch">
           {header}
@@ -281,6 +294,7 @@ export function SideEditor({
                     onChange={(v) => onChangeFlange(i, v)}
                     onRemove={() => onRemoveFlange(i)}
                     onSetRelief={(pos, v) => onSetFlangeRelief(i, pos, v)}
+                    inputDataProps={inputDataProps}
                   />
                 ))}
               </div>
@@ -314,6 +328,7 @@ export function SideEditor({
                     onChange={(v) => onChangeFrez(i, v)}
                     onRemove={() => onRemoveFrez(i)}
                     onSetNotch={(pos, v) => onSetFrezNotch(i, pos, v)}
+                    inputDataProps={inputDataProps}
                   />
                 ))}
                 <button onClick={onAddFrez}
@@ -347,7 +362,7 @@ export function SideEditor({
        └──────────────┘
     ══════════════════════════════════════════════════════════════════ */
   return (
-    <div className="side-editor-panel flex h-full w-[116px] flex-col rounded-xl border border-white/[0.07] bg-card/70 backdrop-blur-sm">
+    <div className={`side-editor-panel flex h-full w-[116px] flex-col rounded-xl border border-white/[0.07] bg-card/70 backdrop-blur-sm ${isSelected ? "ring-1 ring-emerald-500/40" : ""}`}>
       {header}
 
       {/* Horizontal separator — mirrors the vertical one on T/B cards */}
@@ -363,6 +378,7 @@ export function SideEditor({
               onChange={(v) => onChangeFlange(i, v)}
               onRemove={() => onRemoveFlange(i)}
               onSetRelief={(pos, v) => onSetFlangeRelief(i, pos, v)}
+              inputDataProps={inputDataProps}
             />
           ))}
         </div>
@@ -392,6 +408,7 @@ export function SideEditor({
                 onChange={(v) => onChangeFrez(i, v)}
                 onRemove={() => onRemoveFrez(i)}
                 onSetNotch={(pos, v) => onSetFrezNotch(i, pos, v)}
+                inputDataProps={inputDataProps}
               />
             ))}
             <button onClick={onAddFrez}
