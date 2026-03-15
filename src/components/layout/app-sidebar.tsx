@@ -1,4 +1,4 @@
-import { ChevronDown, FileStack, LayoutDashboard, LogOut, Plus, ScissorsLineDashed, UserRound, Search, Filter, MoreHorizontal, Star } from "lucide-react";
+import { ChevronDown, FileStack, LayoutDashboard, LogOut, Plus, ScissorsLineDashed, UserRound, Search, Filter, MoreHorizontal, Star, Copy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthActions } from "@convex-dev/auth/react";
@@ -356,35 +356,57 @@ export function AppSidebar() {
                                   </Link>
                                 </SidebarMenuSubButton>
 
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="absolute right-0.5 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover/item:opacity-100 hover:bg-white/10 focus-visible:opacity-100 transition-opacity aria-expanded:opacity-100 text-slate-400 hover:text-white"
-                                    >
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-48 border-white/10 bg-[#090d16] text-slate-200">
-                                    <DropdownMenuItem onClick={() => toggleStarDesign({ designId: design.id, isStarred: !design.isStarred })} className="hover:bg-white/10">
-                                      {design.isStarred ? "Unstar" : "Star design"}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setDesignToRename({ id: design.id, name: design.name })} className="hover:bg-white/10">
-                                      Rename
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => duplicateDesign({ designId: design.id })} className="hover:bg-white/10">
-                                      Duplicate
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator className="bg-white/5" />
-                                    <DropdownMenuItem
-                                      className="text-red-400 focus:text-red-300 focus:bg-red-400/10 hover:text-red-300 hover:bg-red-400/10"
-                                      onClick={() => setDesignToDelete(design.id)}
-                                    >
-                                      Delete design
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                <div className="absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover/item:opacity-100 focus-within:opacity-100 transition-opacity">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 hover:bg-white/10 text-slate-400 hover:text-white"
+                                    onClick={async (e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const newId = await duplicateDesign({ designId: design.id });
+                                      navigate(`/sheet-metal/${newId}`);
+                                    }}
+                                    title="Duplicate design"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 hover:bg-white/10 aria-expanded:bg-white/10 text-slate-400 hover:text-white"
+                                      >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48 border-white/10 bg-[#090d16] text-slate-200">
+                                      <DropdownMenuItem onClick={() => toggleStarDesign({ designId: design.id, isStarred: !design.isStarred })} className="hover:bg-white/10">
+                                        {design.isStarred ? "Unstar" : "Star design"}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setDesignToRename({ id: design.id, name: design.name })} className="hover:bg-white/10">
+                                        Rename
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={async () => {
+                                          const newId = await duplicateDesign({ designId: design.id });
+                                          navigate(`/sheet-metal/${newId}`);
+                                        }}
+                                        className="hover:bg-white/10"
+                                      >
+                                        Duplicate
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator className="bg-white/5" />
+                                      <DropdownMenuItem
+                                        className="text-red-400 focus:text-red-300 focus:bg-red-400/10 hover:text-red-300 hover:bg-red-400/10"
+                                        onClick={() => setDesignToDelete(design.id)}
+                                      >
+                                        Delete design
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
                               </SidebarMenuSubItem>
                             ))}
                           </ul>
