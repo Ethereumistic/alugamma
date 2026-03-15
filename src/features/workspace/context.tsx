@@ -38,6 +38,21 @@ export type ProjectSummary = {
   name: string;
   slug: string;
   description: string;
+  defaults?: {
+    baseWidth: number;
+    baseHeight: number;
+    offsetCut: number;
+    flangeDefaults: {
+      count1: number[];
+      count2: number[];
+      count3: number[];
+    };
+    frezDefaults: {
+      count1: number[];
+      count2: number[];
+      count3: number[];
+    };
+  };
   role: string;
   designs: ProjectDesignSummary[];
 };

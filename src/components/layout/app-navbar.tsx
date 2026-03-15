@@ -57,7 +57,6 @@ export function AppNavbar() {
     designName,
     setDesignName,
     setBaseValue,
-    setOffsetCut,
     setIncludeName,
     setIncludeArrow,
     setArrowDirection,
@@ -220,8 +219,6 @@ export function AppNavbar() {
               />
               Invert Y
             </label>
-            <div className="mx-2 h-4 w-px bg-white/10" />
-            <NavNumberField label="OFFSET CUT" value={model.offsetCut} onChange={(value) => setOffsetCut(value)} />
           </div>
 
           <div className="h-4 w-px bg-white/10" />

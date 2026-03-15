@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 
 import type { GeometryResult, LineShape } from "@/features/sheet-metal/types";
 
@@ -16,8 +17,7 @@ function distanceToSegment(px: number, py: number, x1: number, y1: number, x2: n
   return Math.hypot(px - pProjX, py - pProjY);
 }
 
-const CANVAS_WIDTH = 1200;
-const CANVAS_HEIGHT = 760;
+const PADDING = 80;
 
 type PreviewCanvasProps = {
   geometry: GeometryResult;
@@ -28,6 +28,10 @@ export function PreviewCanvas({ geometry }: PreviewCanvasProps) {
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const [hoveredLine, setHoveredLine] = useState<LineShape | null>(null);
 
+  // Exact 1:1 pixel size for the drawing
+  const canvasWidth = geometry.totalWidth > 0 ? geometry.totalWidth + PADDING * 2 : 1200;
+  const canvasHeight = geometry.totalHeight > 0 ? geometry.totalHeight + PADDING * 2 : 760;
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -35,54 +39,29 @@ export function PreviewCanvas({ geometry }: PreviewCanvasProps) {
     const context = canvas.getContext("2d");
     if (!context) return;
 
-    const { width, height } = canvas;
-    const { totalWidth, totalHeight, shapes, baseRect } = geometry;
+    context.clearRect(0, 0, canvasWidth, canvasHeight);
+    
+    // We remove the hardcoded background grid and background color per user instructions
+    // The background is handled by the parent container now.
 
-    context.clearRect(0, 0, width, height);
-    context.fillStyle = "#0b0f18";
-    context.fillRect(0, 0, width, height);
+    if (geometry.totalWidth <= 0 || geometry.totalHeight <= 0) return;
 
-    if (totalWidth <= 0 || totalHeight <= 0) return;
+    // 1:1 scale mapping without distortion
+    const translateX = (value: number) => PADDING + value;
+    const translateY = (value: number) => canvasHeight - PADDING - value;
 
-    const padding = 48;
-    const scale = Math.min((width - padding * 2) / totalWidth, (height - padding * 2) / totalHeight);
-    const offsetX = (width - totalWidth * scale) / 2;
-    const offsetY = (height - totalHeight * scale) / 2;
-    const translateX = (value: number) => offsetX + value * scale;
-    const translateY = (value: number) => height - offsetY - value * scale;
-
-    context.save();
-    context.strokeStyle = "rgba(180, 197, 220, 0.08)";
-    context.lineWidth = 1;
-
-    const gridStep = Math.max(20, Math.round(Math.max(totalWidth, totalHeight) / 16));
-
-    for (let x = 0; x <= totalWidth; x += gridStep) {
-      context.beginPath();
-      context.moveTo(translateX(x), 0);
-      context.lineTo(translateX(x), height);
-      context.stroke();
-    }
-
-    for (let y = 0; y <= totalHeight; y += gridStep) {
-      context.beginPath();
-      context.moveTo(0, translateY(y));
-      context.lineTo(width, translateY(y));
-      context.stroke();
-    }
-    context.restore();
-
+    // Draw Base Rect
     context.save();
     context.fillStyle = "rgba(218, 70, 239, 0.08)";
     context.fillRect(
-      translateX(baseRect.x0),
-      translateY(baseRect.y1),
-      (baseRect.x1 - baseRect.x0) * scale,
-      (baseRect.y1 - baseRect.y0) * scale,
+      translateX(geometry.baseRect.x0),
+      translateY(geometry.baseRect.y1),
+      (geometry.baseRect.x1 - geometry.baseRect.x0),
+      (geometry.baseRect.y1 - geometry.baseRect.y0),
     );
     context.restore();
 
-    const ordered = [...shapes].sort((left, right) => {
+    const ordered = [...geometry.shapes].sort((left, right) => {
       if (left === hoveredLine) return 1;
       if (right === hoveredLine) return -1;
       return left.layer === right.layer ? 0 : left.layer === "CUT" ? 1 : -1;
@@ -104,39 +83,39 @@ export function PreviewCanvas({ geometry }: PreviewCanvasProps) {
       
       context.stroke();
     }
-  }, [geometry, hoveredLine]);
+  }, [geometry, hoveredLine, canvasWidth, canvasHeight]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const cssX = e.clientX - rect.left;
-    const cssY = e.clientY - rect.top;
-
+    
+    // Get mouse position relative to viewport
     if (tooltipRef.current) {
-      tooltipRef.current.style.left = `${cssX + 16}px`;
-      tooltipRef.current.style.top = `${cssY + 16}px`;
+      const viewerRect = tooltipRef.current.parentElement?.getBoundingClientRect();
+      if (viewerRect) {
+        const cssX = e.clientX - viewerRect.left;
+        const cssY = e.clientY - viewerRect.top;
+        tooltipRef.current.style.left = `${cssX + 16}px`;
+        tooltipRef.current.style.top = `${cssY + 16}px`;
+      }
     }
 
     if (geometry.totalWidth <= 0 || geometry.totalHeight <= 0) return;
 
-    const canvasX = (cssX / rect.width) * CANVAS_WIDTH;
-    const canvasY = (cssY / rect.height) * CANVAS_HEIGHT;
+    // Scale physical screen pixels back to 1:1 internal canvas pixels
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const canvasX = (e.clientX - rect.left) * scaleX;
+    const canvasY = (e.clientY - rect.top) * scaleY;
 
-    const padding = 48;
-    const scale = Math.min(
-      (CANVAS_WIDTH - padding * 2) / geometry.totalWidth,
-      (CANVAS_HEIGHT - padding * 2) / geometry.totalHeight,
-    );
-    const offsetX = (CANVAS_WIDTH - geometry.totalWidth * scale) / 2;
-    const offsetY = (CANVAS_HEIGHT - geometry.totalHeight * scale) / 2;
-
-    const translateX = (val: number) => offsetX + val * scale;
-    const translateY = (val: number) => CANVAS_HEIGHT - offsetY - val * scale;
+    const translateX = (val: number) => PADDING + val;
+    const translateY = (val: number) => canvasHeight - PADDING - val;
 
     let closest: LineShape | null = null;
-    let minDist = 18; // hover collision distance threshold in canvas pixels
+    let minDist = 18 * scaleX; // hover collision distance threshold adjusted by scale
 
     for (const shape of geometry.shapes) {
       const x1 = translateX(shape.x1);
@@ -156,15 +135,27 @@ export function PreviewCanvas({ geometry }: PreviewCanvasProps) {
   };
 
   return (
-    <div className="relative h-full w-full">
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_WIDTH}
-        height={CANVAS_HEIGHT}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => setHoveredLine(null)}
-        className="h-full w-full rounded-[1.25rem] outline-none"
-      />
+    <div className="relative h-full w-full overflow-hidden bg-[#080c14]">
+      <TransformWrapper
+        initialScale={1}
+        minScale={0.1}
+        maxScale={8}
+        centerOnInit
+        wheel={{ step: 0.1 }}
+      >
+        <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }}>
+          <canvas
+            ref={canvasRef}
+            width={canvasWidth}
+            height={canvasHeight}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setHoveredLine(null)}
+            className="outline-none"
+            style={{ display: "block" }}
+          />
+        </TransformComponent>
+      </TransformWrapper>
+      
       <div 
          ref={tooltipRef} 
          className={`pointer-events-none absolute z-50 rounded-lg bg-emerald-950/90 shadow-[0_0_15px_rgba(20,180,100,0.2)] border border-emerald-500/30 backdrop-blur-md px-3 py-1.5 text-xs font-mono font-bold text-emerald-300 transition-opacity duration-200 ${hoveredLine ? 'opacity-100' : 'opacity-0'}`}

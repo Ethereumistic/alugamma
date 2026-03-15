@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import {
   inviteStatusValidator,
   organizationRoleValidator,
+  projectDefaultsValidator,
   projectRoleValidator,
   sheetModelValidator,
 } from "./validators";
@@ -32,6 +33,7 @@ export default defineSchema({
     name: v.string(),
     slug: v.string(),
     description: v.optional(v.string()),
+    defaults: v.optional(projectDefaultsValidator),
     createdBy: v.id("users"),
     createdAt: v.number(),
     updatedAt: v.number(),

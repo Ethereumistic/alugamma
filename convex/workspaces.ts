@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
 import type { Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
@@ -13,7 +13,7 @@ import {
   requireViewer,
   slugify,
 } from "./helpers";
-import { organizationRoleValidator, projectRoleValidator } from "./validators";
+import { organizationRoleValidator, projectDefaultsValidator, projectRoleValidator } from "./validators";
 
 async function nextOrganizationSlug(ctx: MutationCtx, name: string) {
   const base = slugify(name) || "organization";
@@ -110,6 +110,7 @@ export const viewerWorkspace = query({
         name: string;
         slug: string;
         description: string;
+        defaults?: Infer<typeof projectDefaultsValidator>;
         role: string;
       }
     >();
@@ -132,6 +133,7 @@ export const viewerWorkspace = query({
         name: project.name,
         slug: project.slug,
         description: project.description ?? "",
+        defaults: project.defaults,
         role: membership.role,
       });
     }
@@ -155,6 +157,7 @@ export const viewerWorkspace = query({
           name: project.name,
           slug: project.slug,
           description: project.description ?? "",
+          defaults: project.defaults,
           role: existing?.role ?? membership.role,
         });
       }
@@ -604,6 +607,7 @@ export const projectAccessOverview = query({
         id: access.project._id,
         name: access.project.name,
         description: access.project.description ?? "",
+        defaults: access.project.defaults,
       },
       members,
       invites: invites
@@ -620,5 +624,16 @@ export const projectAccessOverview = query({
         access.projectMembership?.role === "owner" ||
         access.projectMembership?.role === "editor",
     };
+  },
+});
+
+export const updateProjectDefaults = mutation({
+  args: {
+    projectId: v.id("projects"),
+    defaults: projectDefaultsValidator,
+  },
+  handler: async (ctx, args) => {
+    const access = await requireProjectManager(ctx, args.projectId);
+    await ctx.db.patch(args.projectId, { defaults: args.defaults });
   },
 });

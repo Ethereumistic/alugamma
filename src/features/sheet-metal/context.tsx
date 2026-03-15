@@ -107,7 +107,7 @@ export function useSheetMetal() {
 }
 
 export function SheetMetalProvider({ children }: { children: ReactNode }) {
-  const { selectedProjectId } = useWorkspace();
+  const { selectedProjectId, selectedProject } = useWorkspace();
   const defaultDraft = buildPresetDraft(1);
   const [model, setModel] = useState<SheetMetalModel>(() => defaultDraft.model);
   const [designName, setDesignName] = useState(defaultDraft.designName);
@@ -125,13 +125,24 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
   );
   const geometry = computeSheetMetalGeometry(model);
 
+  function applyProjectDefaults(draftModel: SheetMetalModel) {
+    if (!selectedProject?.defaults) return draftModel;
+    const def = selectedProject.defaults;
+    return {
+      ...draftModel,
+      baseWidth: def.baseWidth,
+      baseHeight: def.baseHeight,
+      offsetCut: def.offsetCut,
+    };
+  }
+
   useEffect(() => {
     const nextDraft = selectedProjectId ? buildPresetDraft(0) : buildPresetDraft(1);
-    setModel(nextDraft.model);
+    setModel(applyProjectDefaults(nextDraft.model));
     setDesignName(nextDraft.designName);
     setSelectedDesignId(null);
     setIsNewDesign(true);
-  }, [selectedProjectId]);
+  }, [selectedProjectId, selectedProject?.defaults]);
 
   function setBaseValue(key: "baseWidth" | "baseHeight", value: number) {
     setModel((current) => ({
@@ -187,13 +198,42 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
 
   function addFlange(side: SideKey) {
     patchSide(side, (draft) => {
-      const amount = draft.flanges.length === 0 ? 25 : 20;
-      return { ...draft, flanges: [...draft.flanges, createFlangeMeasurement(amount)] };
+      const newCount = draft.flanges.length + 1;
+      let newAmounts: number[];
+      if (newCount === 1) newAmounts = selectedProject?.defaults?.flangeDefaults.count1 || [20];
+      else if (newCount === 2) newAmounts = selectedProject?.defaults?.flangeDefaults.count2 || [25, 20];
+      else if (newCount === 3) newAmounts = selectedProject?.defaults?.flangeDefaults.count3 || [60, 40, 20];
+      else newAmounts = draft.flanges.map((f) => f.amount).concat([20]);
+
+      const updatedFlanges = newAmounts.map((amount, i) => {
+        if (i < draft.flanges.length) {
+          return { ...draft.flanges[i], amount };
+        }
+        return createFlangeMeasurement(amount);
+      });
+
+      return { ...draft, flanges: updatedFlanges };
     });
   }
 
   function addFrez(side: SideKey) {
-    patchSide(side, (draft) => ({ ...draft, frezLines: [...draft.frezLines, createFrezMeasurement(24)] }));
+    patchSide(side, (draft) => {
+      const newCount = draft.frezLines.length + 1;
+      let newAmounts: number[];
+      if (newCount === 1) newAmounts = selectedProject?.defaults?.frezDefaults.count1 || [24];
+      else if (newCount === 2) newAmounts = selectedProject?.defaults?.frezDefaults.count2 || [24, 24];
+      else if (newCount === 3) newAmounts = selectedProject?.defaults?.frezDefaults.count3 || [24, 24, 24];
+      else newAmounts = draft.frezLines.map((f) => f.amount).concat([24]);
+
+      const updatedFrez = newAmounts.map((amount, i) => {
+        if (i < draft.frezLines.length) {
+          return { ...draft.frezLines[i], amount };
+        }
+        return createFrezMeasurement(amount);
+      });
+
+      return { ...draft, frezLines: updatedFrez };
+    });
   }
 
   function updateFlange(side: SideKey, index: number, amount: number) {
@@ -273,7 +313,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
 
   function startNewDesign() {
     const draft = buildPresetDraft(0);
-    setModel(draft.model);
+    setModel(applyProjectDefaults(draft.model));
     setDesignName(draft.designName);
     setSelectedDesignId(null);
     setIsNewDesign(true);

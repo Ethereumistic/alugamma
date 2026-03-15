@@ -44,6 +44,22 @@ export const frezMeasurementValidator = v.union(
   }),
 );
 
+export const projectDefaultsValidator = v.object({
+  baseWidth: v.number(),
+  baseHeight: v.number(),
+  offsetCut: v.number(),
+  flangeDefaults: v.object({
+    count1: v.array(v.number()),
+    count2: v.array(v.number()),
+    count3: v.array(v.number()),
+  }),
+  frezDefaults: v.object({
+    count1: v.array(v.number()),
+    count2: v.array(v.number()),
+    count3: v.array(v.number()),
+  }),
+});
+
 export const sideConfigValidator = v.object({
   flanges: v.array(flangeMeasurementValidator),
   frezLines: v.array(frezMeasurementValidator),
