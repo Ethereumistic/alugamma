@@ -24,6 +24,7 @@ function isInsideFlangeInput(e: KeyboardEvent) {
   return isTextInput(e) && target.hasAttribute("data-side");
 }
 
+
 // data-side lives on the <input> itself — query it directly, never as a descendant.
 function getFlangeInputs(side: SideKey) {
   return document.querySelectorAll<HTMLInputElement>(`input[data-side="${side}"]`);
@@ -77,6 +78,8 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
   });
 
   useHotkey("Mod+Z", (e) => {
+    // Don't intercept native undo inside text inputs like the design name field.
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     undo();
   });
@@ -133,42 +136,20 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     });
   }
 
-  // WASD: select side, auto-focus last flange input if flanges exist
-  useHotkey("W", (e) => {
-    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
-    e.preventDefault();
-    const side: SideKey = "top";
+  // WASD: select side, auto-focus last flange input if flanges exist.
+  // No ignoreInputs:false — the library's default behaviour suppresses single-key hotkeys
+  // inside any text input, which is exactly what we want: WASD types freely in the design
+  // name field and other plain inputs. Press Escape to blur a flange input first, then WASD.
+  const handleSideSelect = (side: SideKey) => {
     const count = model.sides[side].flanges.length;
     setSelectedSide(side);
     if (count > 0) { setSelectedFlangeIndex(count - 1); focusLastFlangeInput(side); }
-  }, { ignoreInputs: false });
+  };
 
-  useHotkey("A", (e) => {
-    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
-    e.preventDefault();
-    const side: SideKey = "left";
-    const count = model.sides[side].flanges.length;
-    setSelectedSide(side);
-    if (count > 0) { setSelectedFlangeIndex(count - 1); focusLastFlangeInput(side); }
-  }, { ignoreInputs: false });
-
-  useHotkey("S", (e) => {
-    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
-    e.preventDefault();
-    const side: SideKey = "bottom";
-    const count = model.sides[side].flanges.length;
-    setSelectedSide(side);
-    if (count > 0) { setSelectedFlangeIndex(count - 1); focusLastFlangeInput(side); }
-  }, { ignoreInputs: false });
-
-  useHotkey("D", (e) => {
-    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
-    e.preventDefault();
-    const side: SideKey = "right";
-    const count = model.sides[side].flanges.length;
-    setSelectedSide(side);
-    if (count > 0) { setSelectedFlangeIndex(count - 1); focusLastFlangeInput(side); }
-  }, { ignoreInputs: false });
+  useHotkey("W", (e) => { e.preventDefault(); handleSideSelect("top"); });
+  useHotkey("A", (e) => { e.preventDefault(); handleSideSelect("left"); });
+  useHotkey("S", (e) => { e.preventDefault(); handleSideSelect("bottom"); });
+  useHotkey("D", (e) => { e.preventDefault(); handleSideSelect("right"); });
 
   useHotkey("Escape", (e) => {
     if (isTextInput(e)) {
@@ -241,6 +222,7 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
 
   // Mod+Shift+F: delete ALL flanges on selected side
   useHotkey("Mod+Shift+F", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
@@ -251,6 +233,7 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
 
   // Mod+Shift+Z: delete ALL frez on selected side
   useHotkey("Mod+Shift+Z", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
     e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
