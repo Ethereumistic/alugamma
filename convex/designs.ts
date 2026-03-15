@@ -133,6 +133,7 @@ function normalizeSheetModel(model: any) {
       bottomRight: normalizeCornerReliefEntry(model.cornerReliefs?.bottomRight),
       bottomLeft: normalizeCornerReliefEntry(model.cornerReliefs?.bottomLeft),
     },
+    rubberband: typeof model.rubberband === "boolean" ? model.rubberband : true,
   };
 }
 

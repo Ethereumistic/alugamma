@@ -61,6 +61,7 @@ export function AppNavbar() {
     setIncludeArrow,
     setArrowDirection,
     setInvert,
+    setRubberband,
     loadPreset,
     exportDxf,
     saveDesign,
@@ -229,6 +230,7 @@ export function AppNavbar() {
               onSetIncludeName={setIncludeName}
               onSetIncludeArrow={setIncludeArrow}
               onSetArrowDirection={setArrowDirection}
+              onSetRubberband={setRubberband}
             />
             <Button size="sm" variant="outline" className="h-8 px-4 text-xs" onClick={() => void handleSave()} disabled={!selectedProject || isSaving}>
               Save

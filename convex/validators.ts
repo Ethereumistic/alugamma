@@ -87,4 +87,5 @@ export const sheetModelValidator = v.object({
     bottomRight: cornerReliefEntryValidator,
     bottomLeft: cornerReliefEntryValidator,
   }),
+  rubberband: v.optional(v.boolean()),
 });

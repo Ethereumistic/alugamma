@@ -53,6 +53,7 @@ export type SheetMetalModel = {
   arrowDirection: SideKey;
   sides: Record<SideKey, SideConfig>;
   cornerReliefs: Record<CornerKey, CornerReliefAxes>;
+  rubberband: boolean;
 };
 
 export type Rect = {
@@ -154,6 +155,7 @@ export function createEmptyModel(): SheetMetalModel {
       bottomRight: createEmptyCornerRelief(),
       bottomLeft: createEmptyCornerRelief(),
     },
+    rubberband: true,
   };
 }
 
@@ -299,5 +301,6 @@ export function normalizeSheetMetalModel(model: SheetMetalModel): SheetMetalMode
       bottomRight: normalizeCornerReliefAxes(model.cornerReliefs.bottomRight),
       bottomLeft: normalizeCornerReliefAxes(model.cornerReliefs.bottomLeft),
     },
+    rubberband: typeof model.rubberband === "boolean" ? model.rubberband : true,
   };
 }

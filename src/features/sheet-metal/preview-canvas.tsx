@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch";
+import { Square, Maximize } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { useSheetMetal } from "@/features/sheet-metal/context";
 import type { GeometryResult, LineShape } from "@/features/sheet-metal/types";
 
 function getLineLength(shape: LineShape) {
@@ -23,10 +26,29 @@ type PreviewCanvasProps = {
   geometry: GeometryResult;
 };
 
+function CanvasControls() {
+  const { centerView } = useControls();
+
+  return (
+    <div className="absolute right-4 top-4 z-10">
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => centerView()}
+        className="h-8 w-8 border-white/10 bg-black/40 text-slate-400 hover:bg-white/10 hover:text-white"
+        title="Center View"
+      >
+        <Square className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 export function PreviewCanvas({ geometry }: PreviewCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const [hoveredLine, setHoveredLine] = useState<LineShape | null>(null);
+  const { model } = useSheetMetal();
 
   // Exact 1:1 pixel size for the drawing
   const canvasWidth = geometry.totalWidth > 0 ? geometry.totalWidth + PADDING * 2 : 1200;
@@ -141,8 +163,10 @@ export function PreviewCanvas({ geometry }: PreviewCanvasProps) {
         minScale={0.1}
         maxScale={8}
         centerOnInit
+        limitToBounds={model.rubberband}
         wheel={{ step: 0.1 }}
       >
+        <CanvasControls />
         <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }}>
           <canvas
             ref={canvasRef}

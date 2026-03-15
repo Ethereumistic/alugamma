@@ -77,6 +77,7 @@ type SheetMetalContextType = {
   loadSavedDesign: (designId: Id<"designs">) => void;
   saveDesign: (options?: { markExported?: boolean }) => Promise<Id<"designs"> | null>;
   exportDxf: () => Promise<Id<"designs"> | null>;
+  setRubberband: (value: boolean) => void;
 };
 
 const SheetMetalContext = createContext<SheetMetalContextType | null>(null);
@@ -303,6 +304,13 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
     }));
   }
 
+  function setRubberband(value: boolean) {
+    setModel((current) => ({
+      ...current,
+      rubberband: value,
+    }));
+  }
+
   function loadPreset(index: number) {
     const draft = buildPresetDraft(index);
     setModel(draft.model);
@@ -425,6 +433,7 @@ export function SheetMetalProvider({ children }: { children: ReactNode }) {
         loadSavedDesign,
         saveDesign,
         exportDxf,
+        setRubberband,
       }}
     >
       {children}
