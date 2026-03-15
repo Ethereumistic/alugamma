@@ -144,12 +144,17 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
         addFlange(selectedSide);
         setSelectedFlangeIndex(model.sides[selectedSide].flanges.length); // The new one will be at current length
       });
-      const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
-      if (inputs.length > 0) {
-        const el = inputs[inputs.length - 1] as HTMLInputElement;
-        el.focus();
-        el.select();
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
       }
+      setTimeout(() => {
+        const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
+        if (inputs.length > 0) {
+          const el = inputs[inputs.length - 1] as HTMLInputElement;
+          el.focus();
+          el.select();
+        }
+      }, 0);
     }
   }, { ignoreInputs: false, enabled: isSideSelected });
 
@@ -160,12 +165,17 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
       flushSync(() => {
         addFrez(selectedSide);
       });
-      const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
-      if (inputs.length > 0) {
-        const el = inputs[inputs.length - 1] as HTMLInputElement;
-        el.focus();
-        el.select();
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
       }
+      setTimeout(() => {
+        const inputs = document.querySelectorAll(`[data-side="${selectedSide}"] input[type="text"]`);
+        if (inputs.length > 0) {
+          const el = inputs[inputs.length - 1] as HTMLInputElement;
+          el.focus();
+          el.select();
+        }
+      }, 0);
     }
   }, { ignoreInputs: false, enabled: isSideSelected });
 
