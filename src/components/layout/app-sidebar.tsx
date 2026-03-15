@@ -90,7 +90,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const { signOut } = useAuthActions();
   const { viewer, authenticated, organizations, projects, selectedOrganizationId, selectedProjectId, setSelectedOrganizationId, setSelectedProjectId, selectedOrganization, selectedProject } = useWorkspace();
-  const { startNewDesign } = useSheetMetal();
+  const { startNewDesign, saveDesign } = useSheetMetal();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "a-z" | "z-a">("newest");
@@ -110,7 +110,11 @@ export function AppSidebar() {
     return projects.filter((project) => project.organizationId === selectedOrganizationId);
   }, [projects, selectedOrganizationId]);
 
-  function handleOrganizationChange(orgId: string) {
+  async function handleOrganizationChange(orgId: string) {
+    if (pathIsSheetMetal) {
+      await saveDesign();
+    }
+
     setSelectedOrganizationId(orgId as any);
     const orgProjects = projects.filter((p) => p.organizationId === orgId);
     if (orgProjects.length > 0) {
@@ -118,13 +122,25 @@ export function AppSidebar() {
     } else {
       setSelectedProjectId(null);
     }
+
+    if (pathIsSheetMetal) {
+      navigate("/sheet-metal/new");
+    }
   }
 
-  function handleProjectChange(projectId: string) {
+  async function handleProjectChange(projectId: string) {
+    if (pathIsSheetMetal) {
+      await saveDesign();
+    }
+
     const project = projects.find((p) => p.id === projectId);
     if (project) {
       setSelectedOrganizationId(project.organizationId);
       setSelectedProjectId(projectId as any);
+    }
+
+    if (pathIsSheetMetal) {
+      navigate("/sheet-metal/new");
     }
   }
 

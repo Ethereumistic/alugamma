@@ -135,36 +135,54 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedProjectId]);
 
+  const setProjectId = (id: Id<"projects"> | null) => {
+    setSelectedProjectId(id);
+    if (id && workspace) {
+      const project = workspace.projects.find((p) => p.id === id);
+      if (project && project.organizationId !== selectedOrganizationId) {
+        setSelectedOrganizationId(project.organizationId);
+      }
+    }
+  };
+
+  const setOrganizationId = (id: Id<"organizations"> | null) => {
+    setSelectedOrganizationId(id);
+    if (id && workspace) {
+      // If current project doesn't belong to new org, switch to first project of new org or null
+      const currentProject = workspace.projects.find((p) => p.id === selectedProjectId);
+      if (!currentProject || currentProject.organizationId !== id) {
+        const firstProject = workspace.projects.find((p) => p.organizationId === id);
+        setSelectedProjectId(firstProject?.id ?? null);
+      }
+    }
+  };
+
+  // Initial sync and validation
   useEffect(() => {
-    if (!workspace) {
-      return;
-    }
+    if (!workspace || !workspace.authenticated) return;
 
-    if (!workspace.authenticated) {
-      setSelectedOrganizationId(null);
-      setSelectedProjectId(null);
-      return;
-    }
-
-    const hasSelectedProject = selectedProjectId
-      ? workspace.projects.some((project) => project.id === selectedProjectId)
+    const isProjectValid = selectedProjectId
+      ? workspace.projects.some((p) => p.id === selectedProjectId)
       : false;
-    const nextProjectId = hasSelectedProject ? selectedProjectId : (workspace.projects[0]?.id ?? null);
 
-    if (nextProjectId !== selectedProjectId) {
-      setSelectedProjectId(nextProjectId);
+    const isOrgValid = selectedOrganizationId
+      ? workspace.organizations.some((o) => o.id === selectedOrganizationId)
+      : false;
+
+    if (selectedProjectId && !isProjectValid) {
+      setSelectedProjectId(workspace.projects[0]?.id ?? null);
+    } else if (!selectedProjectId && workspace.projects.length > 0) {
+      setSelectedProjectId(workspace.projects[0].id);
     }
 
-    const nextOrganizationId =
-      workspace.projects.find((project) => project.id === nextProjectId)?.organizationId ??
-      (selectedOrganizationId && workspace.organizations.some((organization) => organization.id === selectedOrganizationId)
-        ? selectedOrganizationId
-        : (workspace.organizations[0]?.id ?? null));
-
-    if (nextOrganizationId !== selectedOrganizationId) {
-      setSelectedOrganizationId(nextOrganizationId);
+    if (selectedOrganizationId && !isOrgValid) {
+      const firstProjectOrgId = workspace.projects[0]?.organizationId;
+      setSelectedOrganizationId(firstProjectOrgId ?? (workspace.organizations[0]?.id ?? null));
+    } else if (!selectedOrganizationId && workspace.organizations.length > 0) {
+      const currentProjectOrgId = workspace.projects.find(p => p.id === selectedProjectId)?.organizationId;
+      setSelectedOrganizationId(currentProjectOrgId ?? workspace.organizations[0].id);
     }
-  }, [workspace, selectedOrganizationId, selectedProjectId]);
+  }, [workspace]);
 
   const selectedProject = workspace?.projects.find((project) => project.id === selectedProjectId) ?? null;
   const selectedOrganization =
@@ -182,9 +200,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         projects: workspace?.projects ?? [],
         pendingInvites: workspace?.pendingInvites ?? [],
         selectedOrganizationId,
-        setSelectedOrganizationId,
+        setSelectedOrganizationId: setOrganizationId,
         selectedProjectId,
-        setSelectedProjectId,
+        setSelectedProjectId: setProjectId,
         selectedOrganization,
         selectedProject,
       }}
