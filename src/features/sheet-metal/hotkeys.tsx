@@ -14,6 +14,16 @@ type SheetMetalHotkeysProps = {
   previewCanvasRef?: React.RefObject<{ centerView: () => void }>;
 };
 
+function isTextInput(e: KeyboardEvent) {
+  const target = e.target as HTMLElement;
+  return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+}
+
+function isInsideFlangeInput(e: KeyboardEvent) {
+  const target = e.target as HTMLElement;
+  return isTextInput(e) && target.hasAttribute("data-side");
+}
+
 export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) {
   const navigate = useNavigate();
   const { saveDesign, exportDxf, startNewDesign, model, selectedDesignId, setRubberband, addFlange, addFrez, setFlangeRelief, undo, removeFlange, removeFrez } = useSheetMetal();
@@ -93,6 +103,8 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     const num = numbers[i];
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useHotkey(`Mod+${num}` as any, (e) => {
+      // Ensure mod key is actually pressed to avoid swallowing regular digit typing in inputs
+      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       if (isSideSelected) {
         const sideConfig = model.sides[selectedSide];
@@ -111,14 +123,22 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
     });
   }
 
-  useHotkey("W", () => setSelectedSide("top"), { ignoreInputs: true });
-  useHotkey("A", () => setSelectedSide("left"), { ignoreInputs: true });
-  useHotkey("S", () => setSelectedSide("bottom"), { ignoreInputs: true });
-  useHotkey("D", () => setSelectedSide("right"), { ignoreInputs: true });
+  useHotkey("W", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("top"); }, { ignoreInputs: false });
+  useHotkey("A", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("left"); }, { ignoreInputs: false });
+  useHotkey("S", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("bottom"); }, { ignoreInputs: false });
+  useHotkey("D", (e) => { if (isTextInput(e) && !isInsideFlangeInput(e)) return; e.preventDefault(); setSelectedSide("right"); }, { ignoreInputs: false });
 
-  useHotkey("Escape", () => setSelectedSide(null));
+  useHotkey("Escape", (e) => { 
+    if (isTextInput(e)) {
+      (e.target as HTMLElement).blur();
+    } else {
+      setSelectedSide(null);
+    }
+  });
 
-  useHotkey("F", () => {
+  useHotkey("F", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
     if (isSideSelected) {
       flushSync(() => {
         addFlange(selectedSide);
@@ -131,9 +151,11 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
         el.select();
       }
     }
-  }, { ignoreInputs: true, enabled: isSideSelected });
+  }, { ignoreInputs: false, enabled: isSideSelected });
 
-  useHotkey("Z", () => {
+  useHotkey("Z", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
     if (isSideSelected) {
       flushSync(() => {
         addFrez(selectedSide);
@@ -145,9 +167,11 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
         el.select();
       }
     }
-  }, { ignoreInputs: true, enabled: isSideSelected });
+  }, { ignoreInputs: false, enabled: isSideSelected });
 
-  useHotkey("Shift+F", () => {
+  useHotkey("Shift+F", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
       if (sideConfig.flanges.length > 0) {
@@ -157,18 +181,22 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
         }
       }
     }
-  }, { ignoreInputs: true, enabled: isSideSelected });
+  }, { ignoreInputs: false, enabled: isSideSelected });
 
-  useHotkey("Shift+Z", () => {
+  useHotkey("Shift+Z", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
       if (sideConfig.frezLines.length > 0) {
         removeFrez(selectedSide, sideConfig.frezLines.length - 1);
       }
     }
-  }, { ignoreInputs: true, enabled: isSideSelected });
+  }, { ignoreInputs: false, enabled: isSideSelected });
 
-  useHotkey("Q", () => {
+  useHotkey("Q", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
       const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length 
@@ -179,9 +207,11 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
         setFlangeRelief(selectedSide, targetIndex, "start", !sideConfig.flanges[targetIndex].reliefs.start);
       }
     }
-  }, { ignoreInputs: true, enabled: isSideSelected });
+  }, { ignoreInputs: false, enabled: isSideSelected });
 
-  useHotkey("E", () => {
+  useHotkey("E", (e) => {
+    if (isTextInput(e) && !isInsideFlangeInput(e)) return;
+    e.preventDefault();
     if (isSideSelected) {
       const sideConfig = model.sides[selectedSide];
       const targetIndex = selectedFlangeIndex !== null && selectedFlangeIndex < sideConfig.flanges.length 
@@ -192,7 +222,7 @@ export function SheetMetalHotkeys({ previewCanvasRef }: SheetMetalHotkeysProps) 
         setFlangeRelief(selectedSide, targetIndex, "end", !sideConfig.flanges[targetIndex].reliefs.end);
       }
     }
-  }, { ignoreInputs: true, enabled: isSideSelected });
+  }, { ignoreInputs: false, enabled: isSideSelected });
 
   return null;
 }
